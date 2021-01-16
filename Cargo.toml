@@ -1,5 +1,5 @@
 [package]
-name = "EagleEyes"
+name = "eagle_eyes"
 version = "0.1.0"
 authors = ["atom"]
 edition = "2018"
