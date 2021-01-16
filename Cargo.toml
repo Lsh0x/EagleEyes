@@ -1,0 +1,10 @@
+[package]
+name = "EagleEyes"
+version = "0.1.0"
+authors = ["atom"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+pcap = { version = "0.8", features = [] }
