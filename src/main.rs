@@ -1,17 +1,15 @@
-use pcap::Device;
+use pcap::{Device, Capture};
+use std::env;
 
 fn main() {
-	let res_devices = Device::list();
+	let args: Vec<String> = env::args().collect();
 
-	match res_devices {
-		Ok(devices) => {
-			for device in devices.iter() {
-				println!("Device: {:?}", device.name);
-			}
-		}
-		Err(msg) => {
-			println!("error: {:?}", msg);
-		}
+	if args.len() != 2 {
+		println!("usage: {:?} <pcap_file>", args[0]);
 	}
-	
+	let mut cap = Capture::from_file(args[1].as_str()).unwrap();
+
+    while let Ok(packet) = cap.next() {
+        println!("received packet! {:?}", packet);
+    }
 }
