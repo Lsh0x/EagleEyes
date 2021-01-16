@@ -4,6 +4,10 @@ version = "0.1.0"
 authors = ["atom"]
 edition = "2018"
 
+[[bin]]
+name = "capture"
+path = "src/capture.rs"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
