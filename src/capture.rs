@@ -2,12 +2,12 @@ use pcap::Capture;
 use std::env;
 use std::mem::transmute;
 
-
-#[repr(C)]
-struct ether {
-  ether_dhost: u8,
-  ether_shost: u8,
-  ether_type: u16,
+#[repr(C, packed)]
+#[derive(Debug)]
+struct EthernetHeader {
+	dhost: [u8; 6],
+	shost: [u8; 6],
+	ether_type: u16
 }
 
 fn main() {
@@ -19,11 +19,19 @@ fn main() {
       match Capture::from_device(device_name.as_str()).unwrap().open(){
         Ok(mut cap) => {
           while let Ok(packet) = cap.next() {
-            unsafe {
-              let eth = transmute::<&[u8], ether>(&packet.data[0..4]);
-              println!("ether_dhost {:?}", eth.ether_dhost);
-              println!("ether_shost {:?}", eth.ether_shost);
-              println!("ether_type {:?}", eth.ether_type);
+            let mut ether_header;
+        	unsafe {
+                ether_header = std::mem::transmute::<* const u8, * const EthernetHeader>(packet.data.as_ptr()).as_ref();
+    	    }
+            match ether_header {
+                None => assert!(true, "ohhhhhhhhhhhhhhhhhhhhhh"),
+                Some(header) => {
+                    let t = header.ether_type.to_be();
+                    match t {
+                        0x0806 => println!("arp"),
+                        _ => println!("unknow: {:?}", t)
+                    }
+                }
             }
           }
         }
