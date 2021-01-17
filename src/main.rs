@@ -1,8 +1,7 @@
-use pcap::{Device, Capture};
+use pcap::{Capture};
 use std::env;
 
 #[repr(C, packed)]
-#[derive(Debug)]
 struct EthernetHeader {
 	dhost: [u8; 6],
 	shost: [u8; 6],
@@ -17,20 +16,11 @@ fn main() {
 	}
 	let mut cap = Capture::from_file(args[1].as_str()).unwrap();
     while let Ok(packet) = cap.next() {
-        let mut ether_header;
-    	unsafe {
-            ether_header = std::mem::transmute::<* const u8, * const EthernetHeader>(packet.data.as_ptr()).as_ref();
-    	}
-        match ether_header {
-            None => assert!(true, "ohhhhhhhhhhhhhhhhhhhhhh"),
-            Some(header) => {
-                let t = header.ether_type.to_be();
-                match t {
-                    0x0806 => println!("arp"),
-                    _ => println!("unknow: {:?}", t)
-                }
-            }
-        }
-        //println!("received packet! {:?}", packet);
+      let header = unsafe {  &*(packet.data.as_ptr() as *const EthernetHeader) };
+      let t = header.ether_type.to_be();
+      match t {
+          0x0806 => println!("arp"),
+          _ => println!("unknow: {:?}", t)
+      }
     }
 }
