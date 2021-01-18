@@ -8,6 +8,10 @@ edition = "2018"
 name = "capture"
 path = "src/capture.rs"
 
+[lib]
+name = "protocol"
+path = "src/protocol/lib.rs"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
