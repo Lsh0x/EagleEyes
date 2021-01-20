@@ -1,12 +1,7 @@
 use pcap::Capture;
 use std::env;
 
-#[repr(C, packed)]
-struct EthernetHeader {
-    dhost: [u8; 6],
-    shost: [u8; 6],
-    ether_type: u16,
-}
+use protocol::EthernetHeader;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -31,7 +26,7 @@ fn main() {
             }
         }
         _ => {
-            println!("usage: <device name>")
+            println!("usage: {:?} <device name>", args[0]);
         }
     }
 }
