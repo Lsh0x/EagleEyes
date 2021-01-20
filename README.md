@@ -2,7 +2,7 @@
 
 ## Introduction
 
-EagleEyes aims to decode pcap traffic and analyse it to ensure security purposes.
+EagleEyes aims to decode net traffic and analyse it using pcap to ensure security purposes.
 
 
 ## Development
