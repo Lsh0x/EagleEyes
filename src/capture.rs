@@ -1,7 +1,7 @@
 use pcap::Capture;
 use std::env;
 
-use protocol::EthernetHeader;
+use protocols::ethernet::EthernetHeader;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
