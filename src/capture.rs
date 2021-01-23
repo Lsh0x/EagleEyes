@@ -1,8 +1,6 @@
 use pcap::Capture;
 use std::env;
 
-use protocols::ethernet::EthernetHeader;
-
 fn main() {
     let args: Vec<String> = env::args().collect();
 
@@ -12,12 +10,7 @@ fn main() {
             match Capture::from_device(device_name.as_str()).unwrap().open() {
                 Ok(mut cap) => {
                     while let Ok(packet) = cap.next() {
-                        let header = unsafe { &*(packet.data.as_ptr() as *const EthernetHeader) };
-                        let t = header.ether_type.to_be();
-                        match t {
-                            0x0806 => println!("arp"),
-                            _ => println!("unknow: {:?}", t),
-                        }
+                        protocols::ethernet::decode(packet.data);
                     }
                 }
                 Err(msg) => {
