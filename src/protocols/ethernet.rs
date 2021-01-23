@@ -1,6 +1,7 @@
 use super::super::utils;
 
 use super::arp;
+use super::ipv4;
 
 #[repr(C, packed)]
 pub struct EthernetHeader {
@@ -24,12 +25,13 @@ const ETHERNET_TYPE_LOOPBACK: u16 = 0x9000;
 pub fn decode(data: &[u8]) {
 	match utils::cast::cast_slice_to_reference::<EthernetHeader>(data) {
 		Ok(header) => {
-        let t = header.ether_type.to_be();
+        	let t = header.ether_type.to_be();
+			let current_data = &data[std::mem::size_of::<EthernetHeader>()..];
 		    match t {
 		    	ETHERNET_TYPE_PUP => println!("PUP"),
 		    	ETHERNET_TYPE_SPRITE => println!("SPRITE"),
-		    	ETHERNET_TYPE_IP => println!("IP"),
-		        ETHERNET_TYPE_ARP => arp::decode(&data[std::mem::size_of::<EthernetHeader>()..]),
+		    	ETHERNET_TYPE_IP => ipv4::decode(current_data),
+		        ETHERNET_TYPE_ARP => arp::decode(current_data),
 		        ETHERNET_TYPE_REVARP => println!("REVARP"),
 		        ETHERNET_TYPE_AT => println!("AT"),
 		        ETHERNET_TYPE_AARP => println!("AARP"),
