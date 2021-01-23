@@ -8,10 +8,17 @@ pub struct EthernetHeader {
 }
 
 pub fn decode(data: &[u8]) {
-	let header = utils::cast::cast_slice_to_reference::<EthernetHeader>(data);
-    let t = header.ether_type.to_be();
-    match t {
-        0x0806 => println!("arp"),
-        _ => println!("unknow: {:?}", t),
-    }
+	match utils::cast::cast_slice_to_reference::<EthernetHeader>(data) {
+		Ok(header) => {
+			let t = header.ether_type.to_be();
+		    match t {
+		        0x0806 => println!("arp"),
+		        _ => println!("unknow: {:?}", t),
+		    }
+		},
+		Err(msg) => {
+			println!("Error: {:?}", msg);
+		}
+	}
+    
 }
