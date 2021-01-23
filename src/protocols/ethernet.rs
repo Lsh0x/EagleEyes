@@ -3,6 +3,7 @@ use crate::utils::cow_struct;
 
 use super::arp;
 use super::ipv4;
+use super::ipv6;
 
 #[derive(Debug, Default, Clone, Copy)]
 #[repr(C, packed)]
@@ -45,7 +46,7 @@ pub fn decode(data: &[u8]) {
           ETHERNET_TYPE_AARP => println!("AARP"),
           ETHERNET_TYPE_VLAN => println!("VLAN"),
           ETHERNET_TYPE_IPX => println!("IPX"),
-          ETHERNET_TYPE_IPV6 => println!("IPV6"),
+		      ETHERNET_TYPE_IPV6 => ipv6::decode(current_data),
           ETHERNET_TYPE_LOOPBACK => println!("LOOPBACK"),
           _ => println!("unknow: {:?}", t),
         }
