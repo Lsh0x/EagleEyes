@@ -1,2 +1,7 @@
-#[path = "protocols/ethernet.rs"]
-pub mod ethernet;
+mod utils;
+
+pub mod protocols {
+	pub mod ethernet;
+}
+
+pub use protocols::ethernet;
