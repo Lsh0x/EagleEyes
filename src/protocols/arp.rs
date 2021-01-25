@@ -1,6 +1,13 @@
 use super::super::utils;
 
-#[derive(Debug)]
+pub const	OP_REQUEST: u16 =	0x1;		/* ARP request.  */
+pub const OP_REPLY: u16 =	0x2;		  /* ARP reply.  */
+pub const OP_RREQUEST: u16 = 0x3;   /* RARP request.  */
+pub const OP_RREPLY: u16 =	0x4;    /* RARP reply.  */
+pub const OP_InREQUEST: u16 = 0x8;  /* InARP request.  */
+pub const OP_InREPLY: u16 = 0x9;		/* InARP reply.  */
+pub const OP_NAK: u16 = 0xa;		    /* (ATM)ARP NAK.  */
+
 #[repr(C, packed)]
 pub struct ArpHeader {
   // hardware type
