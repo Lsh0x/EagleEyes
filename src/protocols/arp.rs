@@ -1,6 +1,7 @@
 use super::super::utils;
 
 #[derive(Debug)]
+#[repr(C, packed)]
 pub struct ArpHeader {
   // hardware type
   pub h_type: u16,
