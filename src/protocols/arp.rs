@@ -8,6 +8,19 @@ pub const OP_InREQUEST: u16 = 0x8;  /* InARP request.  */
 pub const OP_InREPLY: u16 = 0x9;		/* InARP reply.  */
 pub const OP_NAK: u16 = 0xa;		    /* (ATM)ARP NAK.  */
 
+fn op_as_str(op: u16) -> &'static str {
+  match op {
+    OP_REQUEST => "REQUEST",
+    OP_REPLY => "REPLY",
+    OP_RREQUEST => "R_REQUEST",
+    OP_RREPLY => "R_REPLY",
+    OP_InREQUEST => "IN_REQUEST",
+    OP_InREPLY => "IN_REPLY",
+    OP_NAK => "NAK",
+    _ => "UNKNOW",
+  }
+}
+
 #[repr(C, packed)]
 pub struct ArpHeader {
   // hardware type
@@ -22,9 +35,21 @@ pub struct ArpHeader {
   pub op_code: u16,
 }
 
+impl std::fmt::Debug for ArpHeader {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(fmt, "h_type {:#x} ", self.h_type.to_be());
+        write!(fmt, "p_type {:#x} ", self.p_type.to_be());
+        write!(fmt, "h_len {:?} ", self.h_len.to_be());
+        write!(fmt, "p_len {:?} ", self.p_len.to_be());
+        write!(fmt, "op_code {:?} ", op_as_str(self.op_code.to_be()));
+        return Ok(());
+    }
+}
+
 pub fn decode(data: &[u8]) {
 	match utils::cast::cast_slice_to_reference::<ArpHeader>(data) {
     Ok(header) => {
+      println!("{:?}", header);
       let p_type = header.p_type.to_be();
       match p_type {
           0x800 => println!("Using ipv4"),
