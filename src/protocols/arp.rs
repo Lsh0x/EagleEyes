@@ -1,22 +1,27 @@
 use super::super::utils;
 
-pub const	OP_REQUEST: u16 =	0x1;		/* ARP request.  */
-pub const OP_REPLY: u16 =	0x2;		  /* ARP reply.  */
-pub const OP_RREQUEST: u16 = 0x3;   /* RARP request.  */
-pub const OP_RREPLY: u16 =	0x4;    /* RARP reply.  */
-pub const OP_InREQUEST: u16 = 0x8;  /* InARP request.  */
-pub const OP_InREPLY: u16 = 0x9;		/* InARP reply.  */
-pub const OP_NAK: u16 = 0xa;		    /* (ATM)ARP NAK.  */
+#[non_exhaustive]
+pub struct OP;
+
+impl OP {
+  pub const	REQUEST: u16 =	0x1;		/* ARP request.  */
+  pub const REPLY: u16 =	0x2;		  /* ARP reply.  */
+  pub const RREQUEST: u16 = 0x3;    /* RARP request.  */
+  pub const RREPLY: u16 =	0x4;      /* RARP reply.  */
+  pub const INREQUEST: u16 = 0x8;   /* InARP request.  */
+  pub const INREPLY: u16 = 0x9;		  /* InARP reply.  */
+  pub const NAK: u16 = 0xa;		      /* (ATM)ARP NAK.  */
+}
 
 fn op_as_str(op: u16) -> &'static str {
   match op {
-    OP_REQUEST => "REQUEST",
-    OP_REPLY => "REPLY",
-    OP_RREQUEST => "R_REQUEST",
-    OP_RREPLY => "R_REPLY",
-    OP_InREQUEST => "IN_REQUEST",
-    OP_InREPLY => "IN_REPLY",
-    OP_NAK => "NAK",
+    OP::REQUEST => "REQUEST",
+    OP::REPLY => "REPLY",
+    OP::RREQUEST => "R_REQUEST",
+    OP::RREPLY => "R_REPLY",
+    OP::INREQUEST => "IN_REQUEST",
+    OP::INREPLY => "IN_REPLY",
+    OP::NAK => "NAK",
     _ => "UNKNOW",
   }
 }
