@@ -1,4 +1,5 @@
-use super::super::utils;
+use std::mem::size_of;
+use crate::utils::bytes_of_mut;
 
 /// ARP op code
 ///
@@ -55,6 +56,7 @@ fn op_as_str(op: u16) -> &'static str {
 /// * `h_len` for the hardware address length, corresponding of the number of bytes for the hardware address, example 6 for mac addresses
 /// * `p_len` for the protocol address length, corresponding of the number of bytes for the protocol address, example 4 for ipv4 addresses
 /// * `op_code` for the operation code, defined by the OP struct
+#[derive(Default, Clone, Copy)]
 #[repr(C, packed)]
 pub struct ArpHeader {
   /// hardware type
@@ -67,6 +69,18 @@ pub struct ArpHeader {
   pub p_len: u8,
   /// operation code
   pub op_code: u16,
+}
+
+impl ArpHeader {
+  pub fn from_bytes(bytes: &[u8]) -> Option<ArpHeader> {
+    if bytes.len() == size_of::<ArpHeader>() {
+      let mut elem = ArpHeader::default();
+      bytes_of_mut(&mut elem).copy_from_slice(bytes);
+      Some(elem)
+    } else {
+      None
+    }
+  }
 }
 
 impl std::fmt::Debug for ArpHeader {
@@ -89,7 +103,7 @@ impl std::fmt::Debug for ArpHeader {
 ///
 /// # Examples:
 ///
-///``` 
+///```
 ///match utils::cast::cast_slice_to_reference::<EthernetHeader>(data) {
 ///		Ok(header) => {
 ///      let t = header.ether_type.to_be();
@@ -106,8 +120,8 @@ impl std::fmt::Debug for ArpHeader {
 ///```
 
 pub fn decode(data: &[u8]) {
-	match utils::cast::cast_slice_to_reference::<ArpHeader>(data) {
-    Ok(header) => {
+  match ArpHeader::from_bytes(data) {
+    Some(header) => {
       println!("{:?}", header);
       let p_type = header.p_type.to_be();
       match p_type {
@@ -116,6 +130,6 @@ pub fn decode(data: &[u8]) {
           _ => println!("unknow: {:?}", p_type),
       }
     },
-    Err(err) => println!("Error::arp {:?}", err),
+    None => println!("Error::arp {:?}", "Truncated payload"),
   }
 }

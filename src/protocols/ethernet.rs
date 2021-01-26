@@ -1,13 +1,27 @@
-use super::super::utils;
+use std::mem::size_of;
+use crate::utils::bytes_of_mut;
 
 use super::arp;
 use super::ipv4;
 
+#[derive(Debug, Default, Clone, Copy)]
 #[repr(C, packed)]
 pub struct EthernetHeader {
     pub dhost: [u8; 6],
     pub shost: [u8; 6],
     pub ether_type: u16,
+}
+
+impl EthernetHeader {
+	pub fn from_bytes(bytes: &[u8]) -> Option<EthernetHeader> {
+	  if bytes.len() == size_of::<EthernetHeader>() {
+	    let mut elem = EthernetHeader::default();
+	    bytes_of_mut(&mut elem).copy_from_slice(bytes);
+	    Some(elem)
+	  } else {
+	    None
+	  }
+	}
 }
 
 const ETHERNET_TYPE_PUP: u16 = 0x0200;
@@ -23,8 +37,8 @@ const ETHERNET_TYPE_IPV6: u16 = 0x86dd;
 const ETHERNET_TYPE_LOOPBACK: u16 = 0x9000;
 
 pub fn decode(data: &[u8]) {
-	match utils::cast::cast_slice_to_reference::<EthernetHeader>(data) {
-		Ok(header) => {
+	match EthernetHeader::from_bytes(data) {
+		Some(header) => {
         	let t = header.ether_type.to_be();
 			let current_data = &data[std::mem::size_of::<EthernetHeader>()..];
 		    match t {
@@ -42,8 +56,6 @@ pub fn decode(data: &[u8]) {
 		      _ => println!("unknow: {:?}", t),
 		    }
 		},
-		Err(msg) => {
-			println!("Error::ethernet {:?}", msg);
-		}
+		None => println!("Error::ethernet {:?}", "Truncated payload"),
 	}
 }

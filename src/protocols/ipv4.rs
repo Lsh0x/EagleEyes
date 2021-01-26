@@ -1,5 +1,7 @@
-use super::super::utils;
+use std::mem::size_of;
+use crate::utils::bytes_of_mut;
 
+#[derive(Default, Debug, Clone, Copy)]
 #[repr(C, packed)]
 pub struct IPV4Header {
 	pub version_and_header_len: u8,
@@ -12,6 +14,18 @@ pub struct IPV4Header {
 	pub checksum: u16,
 	pub src: u32,
 	pub dst: u32,
+}
+
+impl IPV4Header {
+	pub fn from_bytes(bytes: &[u8]) -> Option<IPV4Header> {
+	  if bytes.len() == size_of::<IPV4Header>() {
+	    let mut elem = IPV4Header::default();
+	    bytes_of_mut(&mut elem).copy_from_slice(bytes);
+	    Some(elem)
+	  } else {
+	    None
+	  }
+	}
 }
 
 const IPPROTO_IP: u8 = 0;
@@ -41,8 +55,8 @@ const IPPROTO_MPLS: u8 = 137;
 const IPPROTO_RAW: u8 = 255;
 
 pub fn decode(data: &[u8]) {
-	match utils::cast::cast_slice_to_reference::<IPV4Header>(data) {
-		Ok(header) => {
+	match IPV4Header::from_bytes(data) {
+		Some(header) => {
 			let version = (header.version_and_header_len & 0xF0) >> 4;
 			if version != 4 {
 				println!("Invalid ip version: {:?}", version);
@@ -79,8 +93,6 @@ pub fn decode(data: &[u8]) {
 				}
 			}
 		},
-		Err(msg) => {
-			println!("ip decode error: {:?}", msg);
-		}
+		None => println!("ip decode error: {:?}", "Truncated payload"),
 	}
 }
