@@ -1,5 +1,6 @@
-use std::mem::size_of;
 use crate::utils::bytes_of_mut;
+use std::fmt;
+use std::mem::size_of;
 
 /// ARP op code
 ///
@@ -56,7 +57,7 @@ fn op_as_str(op: u16) -> &'static str {
 /// * `h_len` for the hardware address length, corresponding of the number of bytes for the hardware address, example 6 for mac addresses
 /// * `p_len` for the protocol address length, corresponding of the number of bytes for the protocol address, example 4 for ipv4 addresses
 /// * `op_code` for the operation code, defined by the OP struct
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Default, Clone, Copy)]
 #[repr(C, packed)]
 pub struct ArpHeader {
   /// hardware type
@@ -82,6 +83,18 @@ impl ArpHeader {
     } else {
       None
     }
+  }
+}
+
+impl fmt::Debug for ArpHeader {
+  fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+    fmt.debug_struct("ArpHeader")
+      .field("h_type", &self.h_type.to_be())
+      .field("p_type", &self.p_type.to_be())
+      .field("h_len", &self.h_len.to_be())
+      .field("p_len", &self.p_len.to_be())
+      .field("op_code", &op_as_str(self.op_code.to_be()))
+      .finish()
   }
 }
 
