@@ -1,4 +1,5 @@
-use super::super::utils;
+use std::mem::size_of;
+use crate::utils::cow_struct;
 
 /// IPV6 Header structure
 ///
@@ -20,6 +21,7 @@ use super::super::utils;
 /// * https://tools.ietf.org/html/rfc6437
 /// * https://en.wikipedia.org/wiki/Explicit_Congestion_Notification
 
+#[derive(Default, Debug, Clone, Copy)]
 #[repr(C, packed)]
 pub struct IPV6Header {
 	pub version_traffic_class_flow_label: u32,
@@ -28,6 +30,10 @@ pub struct IPV6Header {
 	pub hop_limit: u8,
 	pub src: [u32;4],
 	pub dst: [u32;4],
+}
+
+impl IPV6Header {
+  pub const SIZE: usize = size_of::<Self>();
 }
 
 /// Decode an ipv6 header packet for a given &[u8]
@@ -56,17 +62,18 @@ pub struct IPV6Header {
 ///```
 
 pub fn decode(data: &[u8]) {
-	match utils::cast::cast_slice_to_reference::<IPV6Header>(data) {
-		Ok(header) => {
-			let version = (header.version_traffic_class_flow_label & 0xF0) >> 4;
-			if version != 6 {
-				println!("Invalid ipv6 version: {:?}", version);
-			} else {
-				println!("protocol: ipv6 decoded");
-			}
-		},
-		Err(msg) => {
-			println!("ipv6 decode error: {:?}", msg);
-		}
-	}
+  if data.len() >= IPV6Header::SIZE {
+    let (slice, _data) = data.split_at(IPV6Header::SIZE);
+    match cow_struct::<IPV6Header>(slice) {
+      Some(header) => {
+  			let version = (header.version_traffic_class_flow_label & 0xF0) >> 4;
+  			if version != 6 {
+  				println!("Invalid ipv6 version: {:?}", version);
+  			} else {
+  				println!("protocol: ipv6 decoded");
+  			}
+      },
+      None => println!("ip decode error: {:?}", "Truncated payload"),
+    }
+  }
 }
