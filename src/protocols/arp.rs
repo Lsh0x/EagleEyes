@@ -10,13 +10,13 @@ pub struct OP;
 
 impl OP {
   /// ARP request
-  pub const	REQUEST: u16 =	0x1;
+  pub const REQUEST: u16 =  0x1;
   /// ARP reply
-  pub const REPLY: u16 =	0x2;
+  pub const REPLY: u16 =  0x2;
   /// RARP request
   pub const RREQUEST: u16 = 0x3;
   /// RARP reply
-  pub const RREPLY: u16 =	0x4;
+  pub const RREPLY: u16 = 0x4;
   /// InARP request
   pub const INREQUEST: u16 = 0x8;
   /// InARP reply
@@ -56,7 +56,7 @@ fn op_as_str(op: u16) -> &'static str {
 /// * `h_len` for the hardware address length, corresponding of the number of bytes for the hardware address, example 6 for mac addresses
 /// * `p_len` for the protocol address length, corresponding of the number of bytes for the protocol address, example 4 for ipv4 addresses
 /// * `op_code` for the operation code, defined by the OP struct
-#[derive(Default, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy)]
 #[repr(C, packed)]
 pub struct ArpHeader {
   /// hardware type
@@ -72,8 +72,10 @@ pub struct ArpHeader {
 }
 
 impl ArpHeader {
+  pub const SIZE: usize = size_of::<Self>();
+
   pub fn from_bytes(bytes: &[u8]) -> Option<ArpHeader> {
-    if bytes.len() == size_of::<ArpHeader>() {
+    if bytes.len() == Self::SIZE {
       let mut elem = ArpHeader::default();
       bytes_of_mut(&mut elem).copy_from_slice(bytes);
       Some(elem)
@@ -81,17 +83,6 @@ impl ArpHeader {
       None
     }
   }
-}
-
-impl std::fmt::Debug for ArpHeader {
-    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-        write!(fmt, "h_type {:#x} ", self.h_type.to_be());
-        write!(fmt, "p_type {:#x} ", self.p_type.to_be());
-        write!(fmt, "h_len {:?} ", self.h_len.to_be());
-        write!(fmt, "p_len {:?} ", self.p_len.to_be());
-        write!(fmt, "op_code {:?} ", op_as_str(self.op_code.to_be()));
-        return Ok(());
-    }
 }
 
 /// Decode an arp header packet for a given &[8]
@@ -105,31 +96,33 @@ impl std::fmt::Debug for ArpHeader {
 ///
 ///```
 ///match utils::cast::cast_slice_to_reference::<EthernetHeader>(data) {
-///		Ok(header) => {
+///   Ok(header) => {
 ///      let t = header.ether_type.to_be();
-///			let current_data = &data[std::mem::size_of::<EthernetHeader>()..];
-///		    match t {
-///		      ETHERNET_TYPE_ARP => arp::decode(current_data),
-///		      _ => println!("Not ARP: {:?}", t),
-///		    }
-///		},
-///		Err(msg) => {
-///			println!("Error::ethernet {:?}", msg);
-///		}
-///	}
+///     let current_data = &data[std::mem::size_of::<EthernetHeader>()..];
+///       match t {
+///         ETHERNET_TYPE_ARP => arp::decode(current_data),
+///         _ => println!("Not ARP: {:?}", t),
+///       }
+///   },
+///   Err(msg) => {
+///     println!("Error::ethernet {:?}", msg);
+///   }
+/// }
 ///```
-
 pub fn decode(data: &[u8]) {
-  match ArpHeader::from_bytes(data) {
-    Some(header) => {
-      println!("{:?}", header);
-      let p_type = header.p_type.to_be();
-      match p_type {
+  if data.len() >= ArpHeader::SIZE {
+    let (slice, _data) = data.split_at(ArpHeader::SIZE);
+    match ArpHeader::from_bytes(slice) {
+      Some(header) => {
+        println!("{:#?}", header);
+        let p_type = header.p_type.to_be();
+        match p_type {
           0x800 => println!("Using ipv4"),
           0x86DD => println!("Using ipv6"),
           _ => println!("unknow: {:?}", p_type),
-      }
-    },
-    None => println!("Error::arp {:?}", "Truncated payload"),
+        }
+      },
+      None => println!("Error::arp {:?}", "Truncated payload"),
+    }
   }
 }

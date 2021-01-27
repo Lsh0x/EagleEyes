@@ -4,28 +4,30 @@ use crate::utils::bytes_of_mut;
 #[derive(Default, Debug, Clone, Copy)]
 #[repr(C, packed)]
 pub struct IPV4Header {
-	pub version_and_header_len: u8,
-	pub type_of_service: u8,
-	pub total_len: u16,
-	pub identification: u16,
-	pub fragment_offset: u16,
-	pub time_to_live: u8,
-	pub protocol: u8,
-	pub checksum: u16,
-	pub src: u32,
-	pub dst: u32,
+  pub version_and_header_len: u8,
+  pub type_of_service: u8,
+  pub total_len: u16,
+  pub identification: u16,
+  pub fragment_offset: u16,
+  pub time_to_live: u8,
+  pub protocol: u8,
+  pub checksum: u16,
+  pub src: u32,
+  pub dst: u32,
 }
 
 impl IPV4Header {
-	pub fn from_bytes(bytes: &[u8]) -> Option<IPV4Header> {
-	  if bytes.len() == size_of::<IPV4Header>() {
-	    let mut elem = IPV4Header::default();
-	    bytes_of_mut(&mut elem).copy_from_slice(bytes);
-	    Some(elem)
-	  } else {
-	    None
-	  }
-	}
+  pub const SIZE: usize = size_of::<Self>();
+
+  pub fn from_bytes(bytes: &[u8]) -> Option<IPV4Header> {
+    if bytes.len() == size_of::<IPV4Header>() {
+      let mut elem = IPV4Header::default();
+      bytes_of_mut(&mut elem).copy_from_slice(bytes);
+      Some(elem)
+    } else {
+      None
+    }
+  }
 }
 
 const IPPROTO_IP: u8 = 0;
@@ -55,44 +57,47 @@ const IPPROTO_MPLS: u8 = 137;
 const IPPROTO_RAW: u8 = 255;
 
 pub fn decode(data: &[u8]) {
-	match IPV4Header::from_bytes(data) {
-		Some(header) => {
-			let version = (header.version_and_header_len & 0xF0) >> 4;
-			if version != 4 {
-				println!("Invalid ip version: {:?}", version);
-			} else {
-				let len_bytes: usize = ((header.version_and_header_len & 0xF) * 32 / 8).into();
-				let _current_data = &data[len_bytes..];
-				match header.protocol {
-					IPPROTO_IP => println!("IP"),
-					IPPROTO_ICMP => println!("ICMP"),
-					IPPROTO_IGMP => println!("IGMP"),
-					IPPROTO_IPIP => println!("IPIP"),
-					IPPROTO_TCP => println!("TCP"),
-					IPPROTO_EGP => println!("EGP"),
-					IPPROTO_PUP => println!("PUP"),
-					IPPROTO_UDP => println!("UDP"),
-					IPPROTO_IDP => println!("IDP"),
-					IPPROTO_TP => println!("TP"),
-					IPPROTO_DCCP => println!("DCCP"),
-					IPPROTO_IPV6 => println!("IPV6"),
-					IPPROTO_RSVP => println!("RSVP"),
-					IPPROTO_GRE => println!("GRE"),
-					IPPROTO_ESP => println!("ESP"),
-					IPPROTO_AH => println!("AH"),
-					IPPROTO_MTP => println!("MTP"),
-					IPPROTO_BEETPH => println!("BEETPH"),
-					IPPROTO_ENCAP => println!("ENCAP"),
-					IPPROTO_PIM => println!("PIM"),
-					IPPROTO_COMP => println!("COMP"),
-					IPPROTO_SCTP => println!("SCTP"),
-					IPPROTO_UDPLITE => println!("UDPLITE"),
-					IPPROTO_MPLS => println!("MPLS"),
-					IPPROTO_RAW => println!("RAW"),
-					_ => println!("unknown protocol: {}", format!("{:#X}", header.protocol)),
-				}
-			}
-		},
-		None => println!("ip decode error: {:?}", "Truncated payload"),
-	}
+  if data.len() >= IPV4Header::SIZE {
+    let (slice, _data) = data.split_at(IPV4Header::SIZE);
+    match IPV4Header::from_bytes(slice) {
+      Some(header) => {
+        let version = (header.version_and_header_len & 0xF0) >> 4;
+        if version != 4 {
+          println!("Invalid ip version: {:?}", version);
+        } else {
+          let len_bytes: usize = ((header.version_and_header_len & 0xF) * 32 / 8).into();
+          let _current_data = &data[len_bytes..];
+          match header.protocol {
+            IPPROTO_IP => println!("IP"),
+            IPPROTO_ICMP => println!("ICMP"),
+            IPPROTO_IGMP => println!("IGMP"),
+            IPPROTO_IPIP => println!("IPIP"),
+            IPPROTO_TCP => println!("TCP"),
+            IPPROTO_EGP => println!("EGP"),
+            IPPROTO_PUP => println!("PUP"),
+            IPPROTO_UDP => println!("UDP"),
+            IPPROTO_IDP => println!("IDP"),
+            IPPROTO_TP => println!("TP"),
+            IPPROTO_DCCP => println!("DCCP"),
+            IPPROTO_IPV6 => println!("IPV6"),
+            IPPROTO_RSVP => println!("RSVP"),
+            IPPROTO_GRE => println!("GRE"),
+            IPPROTO_ESP => println!("ESP"),
+            IPPROTO_AH => println!("AH"),
+            IPPROTO_MTP => println!("MTP"),
+            IPPROTO_BEETPH => println!("BEETPH"),
+            IPPROTO_ENCAP => println!("ENCAP"),
+            IPPROTO_PIM => println!("PIM"),
+            IPPROTO_COMP => println!("COMP"),
+            IPPROTO_SCTP => println!("SCTP"),
+            IPPROTO_UDPLITE => println!("UDPLITE"),
+            IPPROTO_MPLS => println!("MPLS"),
+            IPPROTO_RAW => println!("RAW"),
+            _ => println!("unknown protocol: {}", format!("{:#X}", header.protocol)),
+          }
+        }
+      },
+      None => println!("ip decode error: {:?}", "Truncated payload"),
+    }
+  }
 }
