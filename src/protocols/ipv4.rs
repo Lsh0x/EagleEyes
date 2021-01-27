@@ -1,5 +1,5 @@
 use std::mem::size_of;
-use crate::utils::bytes_of_mut;
+use crate::utils::cow_struct;
 
 #[derive(Default, Debug, Clone, Copy)]
 #[repr(C, packed)]
@@ -18,16 +18,6 @@ pub struct IPV4Header {
 
 impl IPV4Header {
   pub const SIZE: usize = size_of::<Self>();
-
-  pub fn from_bytes(bytes: &[u8]) -> Option<IPV4Header> {
-    if bytes.len() == size_of::<IPV4Header>() {
-      let mut elem = IPV4Header::default();
-      bytes_of_mut(&mut elem).copy_from_slice(bytes);
-      Some(elem)
-    } else {
-      None
-    }
-  }
 }
 
 const IPPROTO_IP: u8 = 0;
@@ -59,7 +49,7 @@ const IPPROTO_RAW: u8 = 255;
 pub fn decode(data: &[u8]) {
   if data.len() >= IPV4Header::SIZE {
     let (slice, _data) = data.split_at(IPV4Header::SIZE);
-    match IPV4Header::from_bytes(slice) {
+    match cow_struct::<IPV4Header>(slice) {
       Some(header) => {
         let version = (header.version_and_header_len & 0xF0) >> 4;
         if version != 4 {

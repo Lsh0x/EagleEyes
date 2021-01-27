@@ -1,5 +1,5 @@
 use std::mem::size_of;
-use crate::utils::bytes_of_mut;
+use crate::utils::cow_struct;
 
 use super::arp;
 use super::ipv4;
@@ -14,16 +14,6 @@ pub struct EthernetHeader {
 
 impl EthernetHeader {
   pub const SIZE: usize = size_of::<Self>();
-
-  pub fn from_bytes(bytes: &[u8]) -> Option<EthernetHeader> {
-    if bytes.len() == Self::SIZE {
-      let mut elem = EthernetHeader::default();
-      bytes_of_mut(&mut elem).copy_from_slice(bytes);
-      Some(elem)
-    } else {
-      None
-    }
-  }
 }
 
 const ETHERNET_TYPE_PUP: u16 = 0x0200;
@@ -41,7 +31,7 @@ const ETHERNET_TYPE_LOOPBACK: u16 = 0x9000;
 pub fn decode(data: &[u8]) {
   if data.len() >= EthernetHeader::SIZE {
     let (slice, _data) = data.split_at(EthernetHeader::SIZE);
-    match EthernetHeader::from_bytes(slice) {
+    match cow_struct::<EthernetHeader>(slice) {
       Some(header) => {
         let t = header.ether_type.to_be();
         let current_data = &data[std::mem::size_of::<EthernetHeader>()..];

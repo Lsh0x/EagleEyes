@@ -1,4 +1,4 @@
-use crate::utils::bytes_of_mut;
+use crate::utils::cow_struct;
 use std::fmt;
 use std::mem::size_of;
 
@@ -74,16 +74,6 @@ pub struct ArpHeader {
 
 impl ArpHeader {
   pub const SIZE: usize = size_of::<Self>();
-
-  pub fn from_bytes(bytes: &[u8]) -> Option<ArpHeader> {
-    if bytes.len() == Self::SIZE {
-      let mut elem = ArpHeader::default();
-      bytes_of_mut(&mut elem).copy_from_slice(bytes);
-      Some(elem)
-    } else {
-      None
-    }
-  }
 }
 
 impl fmt::Debug for ArpHeader {
@@ -125,7 +115,7 @@ impl fmt::Debug for ArpHeader {
 pub fn decode(data: &[u8]) {
   if data.len() >= ArpHeader::SIZE {
     let (slice, _data) = data.split_at(ArpHeader::SIZE);
-    match ArpHeader::from_bytes(slice) {
+    match cow_struct::<ArpHeader>(slice) {
       Some(header) => {
         println!("{:#?}", header);
         let p_type = header.p_type.to_be();
