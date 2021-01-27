@@ -1,13 +1,19 @@
-use super::super::utils;
+use std::mem::size_of;
+use crate::utils::cow_struct;
 
 use super::arp;
 use super::ipv4;
 
+#[derive(Debug, Default, Clone, Copy)]
 #[repr(C, packed)]
 pub struct EthernetHeader {
-    pub dhost: [u8; 6],
-    pub shost: [u8; 6],
-    pub ether_type: u16,
+  pub dhost: [u8; 6],
+  pub shost: [u8; 6],
+  pub ether_type: u16,
+}
+
+impl EthernetHeader {
+  pub const SIZE: usize = size_of::<Self>();
 }
 
 const ETHERNET_TYPE_PUP: u16 = 0x0200;
@@ -23,27 +29,28 @@ const ETHERNET_TYPE_IPV6: u16 = 0x86dd;
 const ETHERNET_TYPE_LOOPBACK: u16 = 0x9000;
 
 pub fn decode(data: &[u8]) {
-	match utils::cast::cast_slice_to_reference::<EthernetHeader>(data) {
-		Ok(header) => {
-        	let t = header.ether_type.to_be();
-			let current_data = &data[std::mem::size_of::<EthernetHeader>()..];
-		    match t {
-		    	ETHERNET_TYPE_PUP => println!("PUP"),
-		    	ETHERNET_TYPE_SPRITE => println!("SPRITE"),
-		    	ETHERNET_TYPE_IP => ipv4::decode(current_data),
-		      ETHERNET_TYPE_ARP => arp::decode(current_data),
-		      ETHERNET_TYPE_REVARP => println!("REVARP"),
-		      ETHERNET_TYPE_AT => println!("AT"),
-		      ETHERNET_TYPE_AARP => println!("AARP"),
-		      ETHERNET_TYPE_VLAN => println!("VLAN"),
-		      ETHERNET_TYPE_IPX => println!("IPX"),
-		      ETHERNET_TYPE_IPV6 => println!("IPV6"),
-		      ETHERNET_TYPE_LOOPBACK => println!("LOOPBACK"),
-		      _ => println!("unknow: {:?}", t),
-		    }
-		},
-		Err(msg) => {
-			println!("Error::ethernet {:?}", msg);
-		}
-	}
+  if data.len() >= EthernetHeader::SIZE {
+    let (slice, _data) = data.split_at(EthernetHeader::SIZE);
+    match cow_struct::<EthernetHeader>(slice) {
+      Some(header) => {
+        let t = header.ether_type.to_be();
+        let current_data = &data[std::mem::size_of::<EthernetHeader>()..];
+        match t {
+          ETHERNET_TYPE_PUP => println!("PUP"),
+          ETHERNET_TYPE_SPRITE => println!("SPRITE"),
+          ETHERNET_TYPE_IP => ipv4::decode(current_data),
+          ETHERNET_TYPE_ARP => arp::decode(current_data),
+          ETHERNET_TYPE_REVARP => println!("REVARP"),
+          ETHERNET_TYPE_AT => println!("AT"),
+          ETHERNET_TYPE_AARP => println!("AARP"),
+          ETHERNET_TYPE_VLAN => println!("VLAN"),
+          ETHERNET_TYPE_IPX => println!("IPX"),
+          ETHERNET_TYPE_IPV6 => println!("IPV6"),
+          ETHERNET_TYPE_LOOPBACK => println!("LOOPBACK"),
+          _ => println!("unknow: {:?}", t),
+        }
+      },
+      None => println!("Error::ethernet {:?}", "Truncated payload"),
+    }
+  }
 }

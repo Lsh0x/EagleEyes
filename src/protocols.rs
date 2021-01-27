@@ -2,7 +2,7 @@ mod utils;
 
 pub mod protocols {
 	pub mod ethernet;
-  	pub mod arp;
+	pub mod arp;
 	pub mod ipv4;
 }
 
