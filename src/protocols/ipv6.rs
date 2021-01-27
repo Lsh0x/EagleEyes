@@ -9,7 +9,7 @@ use crate::utils::cow_struct;
 ///   - version, constant value of 6 encoded on 4 bits
 ///   - traffic_class, hold two values, 6 first bits for traffic classification called DS field and 2 bytes for explicit congestion notification use for network congestion
 ///   - flow label, 20bits to labelise a numbers of packets between a source and a destination. 
-/// * `payload_length`, lenght of the remaining payload, 0 for 
+/// * `payload_len`, lenght of the remaining payload, 0 for 
 /// * `next_header`, specify the type of the next header usually the transport layer protocol
 /// * `hop_limit`, replace time to live field from ipv4, it's the limit of nnodes that the packet can be forwar.
 /// * `src`, protocol address of the source
@@ -25,7 +25,7 @@ use crate::utils::cow_struct;
 #[repr(C, packed)]
 pub struct IPV6Header {
 	pub version_traffic_class_flow_label: u32,
-	pub payload_length: u16,
+	pub payload_len: u16,
 	pub next_header: u8,
 	pub hop_limit: u8,
 	pub src: [u32;4],
