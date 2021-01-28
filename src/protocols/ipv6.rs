@@ -1,5 +1,5 @@
-use std::mem::size_of;
 use crate::utils::cow_struct;
+use std::mem::size_of;
 
 /// IPV6 Header structure
 ///
@@ -8,8 +8,8 @@ use crate::utils::cow_struct;
 /// * `version_traffic_class_flow_label` contains three field
 ///   - version, constant value of 6 encoded on 4 bits
 ///   - traffic_class, hold two values, 6 first bits for traffic classification called DS field and 2 bytes for explicit congestion notification use for network congestion
-///   - flow label, 20bits to labelise a numbers of packets between a source and a destination. 
-/// * `payload_len`, lenght of the remaining payload, 0 for 
+///   - flow label, 20bits to labelise a numbers of packets between a source and a destination.
+/// * `payload_len`, lenght of the remaining payload, 0 for
 /// * `next_header`, specify the type of the next header usually the transport layer protocol
 /// * `hop_limit`, replace time to live field from ipv4, it's the limit of nnodes that the packet can be forwar.
 /// * `src`, protocol address of the source
@@ -24,16 +24,16 @@ use crate::utils::cow_struct;
 #[derive(Default, Debug, Clone, Copy)]
 #[repr(C, packed)]
 pub struct IPV6Header {
-	pub version_traffic_class_flow_label: u32,
-	pub payload_len: u16,
-	pub next_header: u8,
-	pub hop_limit: u8,
-	pub src: [u32;4],
-	pub dst: [u32;4],
+    pub version_traffic_class_flow_label: u32,
+    pub payload_len: u16,
+    pub next_header: u8,
+    pub hop_limit: u8,
+    pub src: [u32; 4],
+    pub dst: [u32; 4],
 }
 
 impl IPV6Header {
-  pub const SIZE: usize = size_of::<Self>();
+    pub const SIZE: usize = size_of::<Self>();
 }
 
 /// Decode an ipv6 header packet for a given &[u8]
@@ -45,7 +45,7 @@ impl IPV6Header {
 ///
 /// # Examples:
 ///
-///``` 
+///```
 ///match utils::cast::cast_slice_to_reference::<EthernetHeader>(data) {
 ///		Ok(header) => {
 ///     let t = header.ether_type.to_be();
@@ -62,18 +62,18 @@ impl IPV6Header {
 ///```
 
 pub fn decode(data: &[u8]) {
-  if data.len() >= IPV6Header::SIZE {
-    let (slice, _data) = data.split_at(IPV6Header::SIZE);
-    match cow_struct::<IPV6Header>(slice) {
-      Some(header) => {
-  			let version = (header.version_traffic_class_flow_label & 0xF0) >> 4;
-  			if version != 6 {
-  				println!("Invalid ipv6 version: {:?}", version);
-  			} else {
-  				println!("protocol: ipv6 decoded");
-  			}
-      },
-      None => println!("ip decode error: {:?}", "Truncated payload"),
+    if data.len() >= IPV6Header::SIZE {
+        let (slice, _data) = data.split_at(IPV6Header::SIZE);
+        match cow_struct::<IPV6Header>(slice) {
+            Some(header) => {
+                let version = (header.version_traffic_class_flow_label & 0xF0) >> 4;
+                if version != 6 {
+                    println!("Invalid ipv6 version: {:?}", version);
+                } else {
+                    println!("protocol: ipv6 decoded");
+                }
+            }
+            None => println!("ip decode error: {:?}", "Truncated payload"),
+        }
     }
-  }
 }

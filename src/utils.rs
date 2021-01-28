@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::{slice, mem};
+use std::{mem, slice};
 
 /// Gives a mutable slice of the bytes of the given element.
 #[inline]
