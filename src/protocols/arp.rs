@@ -10,20 +10,20 @@ use std::mem::size_of;
 pub struct OP;
 
 impl OP {
-  /// ARP request
-  pub const REQUEST: u16 =  0x1;
-  /// ARP reply
-  pub const REPLY: u16 =  0x2;
-  /// RARP request
-  pub const RREQUEST: u16 = 0x3;
-  /// RARP reply
-  pub const RREPLY: u16 = 0x4;
-  /// InARP request
-  pub const INREQUEST: u16 = 0x8;
-  /// InARP reply
-  pub const INREPLY: u16 = 0x9;
-  /// (ATM) ARP NAK
-  pub const NAK: u16 = 0xa;
+    /// ARP request
+    pub const REQUEST: u16 = 0x1;
+    /// ARP reply
+    pub const REPLY: u16 = 0x2;
+    /// RARP request
+    pub const RREQUEST: u16 = 0x3;
+    /// RARP reply
+    pub const RREPLY: u16 = 0x4;
+    /// InARP request
+    pub const INREQUEST: u16 = 0x8;
+    /// InARP reply
+    pub const INREPLY: u16 = 0x9;
+    /// (ATM) ARP NAK
+    pub const NAK: u16 = 0xa;
 }
 
 /// Arp op code to str
@@ -37,16 +37,16 @@ impl OP {
 /// println!(op_as_str(0x2a));  // will print UNKNOW
 /// ```
 fn op_as_str(op: u16) -> &'static str {
-  match op {
-    OP::REQUEST => "REQUEST",
-    OP::REPLY => "REPLY",
-    OP::RREQUEST => "R_REQUEST",
-    OP::RREPLY => "R_REPLY",
-    OP::INREQUEST => "IN_REQUEST",
-    OP::INREPLY => "IN_REPLY",
-    OP::NAK => "NAK",
-    _ => "UNKNOW",
-  }
+    match op {
+        OP::REQUEST => "REQUEST",
+        OP::REPLY => "REPLY",
+        OP::RREQUEST => "R_REQUEST",
+        OP::RREPLY => "R_REPLY",
+        OP::INREQUEST => "IN_REQUEST",
+        OP::INREPLY => "IN_REPLY",
+        OP::NAK => "NAK",
+        _ => "UNKNOW",
+    }
 }
 
 /// ARP Header structure
@@ -60,32 +60,32 @@ fn op_as_str(op: u16) -> &'static str {
 #[derive(Default, Clone, Copy)]
 #[repr(C, packed)]
 pub struct ArpHeader {
-  /// hardware type
-  pub h_type: u16,
-  /// protocol type
-  pub p_type: u16,
-  /// hardware length (ex: 6 for mac addr)
-  pub h_len: u8,
-  /// protocol length (ex: 4 for ipv4 addr)
-  pub p_len: u8,
-  /// operation code
-  pub op_code: u16,
+    /// hardware type
+    pub h_type: u16,
+    /// protocol type
+    pub p_type: u16,
+    /// hardware length (ex: 6 for mac addr)
+    pub h_len: u8,
+    /// protocol length (ex: 4 for ipv4 addr)
+    pub p_len: u8,
+    /// operation code
+    pub op_code: u16,
 }
 
 impl ArpHeader {
-  pub const SIZE: usize = size_of::<Self>();
+    pub const SIZE: usize = size_of::<Self>();
 }
 
 impl fmt::Debug for ArpHeader {
-  fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-    fmt.debug_struct("ArpHeader")
-      .field("h_type", &self.h_type.to_be())
-      .field("p_type", &self.p_type.to_be())
-      .field("h_len", &self.h_len.to_be())
-      .field("p_len", &self.p_len.to_be())
-      .field("op_code", &op_as_str(self.op_code.to_be()))
-      .finish()
-  }
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        fmt.debug_struct("ArpHeader")
+            .field("h_type", &self.h_type.to_be())
+            .field("p_type", &self.p_type.to_be())
+            .field("h_len", &self.h_len.to_be())
+            .field("p_len", &self.p_len.to_be())
+            .field("op_code", &op_as_str(self.op_code.to_be()))
+            .finish()
+    }
 }
 
 /// Decode an arp header packet for a given &[8]
@@ -113,19 +113,19 @@ impl fmt::Debug for ArpHeader {
 /// }
 ///```
 pub fn decode(data: &[u8]) {
-  if data.len() >= ArpHeader::SIZE {
-    let (slice, _data) = data.split_at(ArpHeader::SIZE);
-    match cow_struct::<ArpHeader>(slice) {
-      Some(header) => {
-        println!("{:#?}", header);
-        let p_type = header.p_type.to_be();
-        match p_type {
-          0x800 => println!("Using ipv4"),
-          0x86DD => println!("Using ipv6"),
-          _ => println!("unknow: {:?}", p_type),
+    if data.len() >= ArpHeader::SIZE {
+        let (slice, _data) = data.split_at(ArpHeader::SIZE);
+        match cow_struct::<ArpHeader>(slice) {
+            Some(header) => {
+                println!("{:#?}", header);
+                let p_type = header.p_type.to_be();
+                match p_type {
+                    0x800 => println!("Using ipv4"),
+                    0x86DD => println!("Using ipv6"),
+                    _ => println!("unknow: {:?}", p_type),
+                }
+            }
+            None => println!("Error::arp {:?}", "Truncated payload"),
         }
-      },
-      None => println!("Error::arp {:?}", "Truncated payload"),
     }
-  }
 }
