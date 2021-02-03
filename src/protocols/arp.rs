@@ -1,3 +1,4 @@
+use super::ethernet;
 use crate::utils::cow_struct;
 use std::fmt;
 use std::mem::size_of;
@@ -80,7 +81,7 @@ impl fmt::Debug for ArpHeader {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("ArpHeader")
             .field("h_type", &self.h_type.to_be())
-            .field("p_type", &self.p_type.to_be())
+            .field("p_type", &ethernet::ether_type_as_str(self.p_type.to_be()))
             .field("h_len", &self.h_len.to_be())
             .field("p_len", &self.p_len.to_be())
             .field("op_code", &op_as_str(self.op_code.to_be()))
@@ -116,15 +117,7 @@ pub fn decode(data: &[u8]) {
     if data.len() >= ArpHeader::SIZE {
         let (slice, _data) = data.split_at(ArpHeader::SIZE);
         match cow_struct::<ArpHeader>(slice) {
-            Some(header) => {
-                println!("{:#?}", header);
-                let p_type = header.p_type.to_be();
-                match p_type {
-                    0x800 => println!("Using ipv4"),
-                    0x86DD => println!("Using ipv6"),
-                    _ => println!("unknow: {:?}", p_type),
-                }
-            }
+            Some(header) => println!("{:#?}", header),
             None => println!("Error::arp {:?}", "Truncated payload"),
         }
     }
