@@ -99,24 +99,21 @@ impl fmt::Debug for ArpHeader {
 /// # Examples:
 ///
 ///```
-///match utils::cast::cast_slice_to_reference::<EthernetHeader>(data) {
-///   Ok(header) => {
-///      let t = header.ether_type.to_be();
-///     let current_data = &data[std::mem::size_of::<EthernetHeader>()..];
-///       match t {
-///         ETHERNET_TYPE_ARP => arp::decode(current_data),
-///         _ => println!("Not ARP: {:?}", t),
-///       }
-///   },
-///   Err(msg) => {
-///     println!("Error::ethernet {:?}", msg);
-///   }
+/// let (header_bytes, next_data) = data.split_at(EthernetHeader::SIZE);
+/// match cow_struct::<EthernetHeader>(header_bytes) {
+///     Some(header) => {
+///         let t = header.ether_type.to_be();
+///         match t {
+///             PROTO::ARP => arp::decode(next_data),
+///             _ => println!("ether type: {:?}", ether_type_as_str(t)),
+///         }
+///     None => println!("Error::ethernet {:?}", "Truncated payload"),
 /// }
 ///```
 pub fn decode(data: &[u8]) {
     if data.len() >= ArpHeader::SIZE {
-        let (slice, _data) = data.split_at(ArpHeader::SIZE);
-        match cow_struct::<ArpHeader>(slice) {
+        let (header_bytes, _data) = data.split_at(ArpHeader::SIZE);
+        match cow_struct::<ArpHeader>(header_bytes) {
             Some(header) => println!("{:#?}", header),
             None => println!("Error::arp {:?}", "Truncated payload"),
         }
