@@ -17,17 +17,56 @@ impl EthernetHeader {
     pub const SIZE: usize = size_of::<Self>();
 }
 
-const ETHERNET_TYPE_PUP: u16 = 0x0200;
-const ETHERNET_TYPE_SPRITE: u16 = 0x0500;
-const ETHERNET_TYPE_IP: u16 = 0x0800;
-const ETHERNET_TYPE_ARP: u16 = 0x0806;
-const ETHERNET_TYPE_REVARP: u16 = 0x8035;
-const ETHERNET_TYPE_AT: u16 = 0x809B;
-const ETHERNET_TYPE_AARP: u16 = 0x80F3;
-const ETHERNET_TYPE_VLAN: u16 = 0x8100;
-const ETHERNET_TYPE_IPX: u16 = 0x8137;
-const ETHERNET_TYPE_IPV6: u16 = 0x86dd;
-const ETHERNET_TYPE_LOOPBACK: u16 = 0x9000;
+/// Ether type value for protocol encapsulation
+///
+/// This define values use to determine the protocol encapsulated in the ethernet frame
+/// Value are defined by Internet Assigned Numbers Authority (IANA)
+///
+/// Source:
+/// * https://www.iana.org/assignments/ieee-802-numbers/ieee-802-numbers.xhtml
+#[non_exhaustive]
+pub struct PROTO;
+
+impl PROTO {
+    pub const PUP: u16 = 0x0200;
+    pub const SPRITE: u16 = 0x0500;
+    pub const IPV4: u16 = 0x0800;
+    pub const ARP: u16 = 0x0806;
+    pub const REVARP: u16 = 0x8035;
+    pub const AT: u16 = 0x809B;
+    pub const AARP: u16 = 0x80F3;
+    pub const VLAN: u16 = 0x8100;
+    pub const IPX: u16 = 0x8137;
+    pub const IPV6: u16 = 0x86dd;
+    pub const LOOPBACK: u16 = 0x9000;
+}
+
+/// ether type protocol to str
+///
+/// Transform an u16 to a humain readable str
+/// if the value of the given u16 match one of the value in ethernet::PROTO
+/// then a str corresponding to the op code is returned
+/// # Examples
+/// ```
+/// println!(op_as_str(0x1));   // will print REQUEST
+/// println!(op_as_str(0x2a));  // will print UNKNOW
+/// ```
+pub fn ether_type_as_str(ether_type: u16) -> &'static str {
+    match ether_type {
+        PROTO::PUP => "PUP",
+        PROTO::SPRITE => "SPRITE",
+        PROTO::IPV4 => "IPV4",
+        PROTO::ARP => "ARP",
+        PROTO::REVARP => "REVARP",
+        PROTO::AT => "AT",
+        PROTO::AARP => "AARP",
+        PROTO::VLAN => "VLAN",
+        PROTO::IPX => "IPX",
+        PROTO::IPV6 => "IPV6",
+        PROTO::LOOPBACK => "LOOPBACK",
+        _ => "UNKNOW",
+    }
+}
 
 pub fn decode(data: &[u8]) {
     if data.len() >= EthernetHeader::SIZE {
@@ -37,18 +76,10 @@ pub fn decode(data: &[u8]) {
                 let t = header.ether_type.to_be();
                 let current_data = &data[std::mem::size_of::<EthernetHeader>()..];
                 match t {
-                    ETHERNET_TYPE_PUP => println!("PUP"),
-                    ETHERNET_TYPE_SPRITE => println!("SPRITE"),
-                    ETHERNET_TYPE_IP => ipv4::decode(current_data),
-                    ETHERNET_TYPE_ARP => arp::decode(current_data),
-                    ETHERNET_TYPE_REVARP => println!("REVARP"),
-                    ETHERNET_TYPE_AT => println!("AT"),
-                    ETHERNET_TYPE_AARP => println!("AARP"),
-                    ETHERNET_TYPE_VLAN => println!("VLAN"),
-                    ETHERNET_TYPE_IPX => println!("IPX"),
-                    ETHERNET_TYPE_IPV6 => ipv6::decode(current_data),
-                    ETHERNET_TYPE_LOOPBACK => println!("LOOPBACK"),
-                    _ => println!("unknow: {:?}", t),
+                    PROTO::ARP => arp::decode(current_data),
+                    PROTO::IPV4 => ipv4::decode(current_data),
+                    PROTO::IPV6 => ipv6::decode(current_data),
+                    _ => println!("ether type: {:?}", ether_type_as_str(t)),
                 }
             }
             None => println!("Error::ethernet {:?}", "Truncated payload"),
