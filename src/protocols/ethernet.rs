@@ -70,15 +70,14 @@ pub fn ether_type_as_str(ether_type: u16) -> &'static str {
 
 pub fn decode(data: &[u8]) {
     if data.len() >= EthernetHeader::SIZE {
-        let (slice, _data) = data.split_at(EthernetHeader::SIZE);
-        match cow_struct::<EthernetHeader>(slice) {
+        let (header_bytes, next_data) = data.split_at(EthernetHeader::SIZE);
+        match cow_struct::<EthernetHeader>(header_bytes) {
             Some(header) => {
                 let t = header.ether_type.to_be();
-                let current_data = &data[std::mem::size_of::<EthernetHeader>()..];
                 match t {
-                    PROTO::ARP => arp::decode(current_data),
-                    PROTO::IPV4 => ipv4::decode(current_data),
-                    PROTO::IPV6 => ipv6::decode(current_data),
+                    PROTO::ARP => arp::decode(next_data),
+                    PROTO::IPV4 => ipv4::decode(next_data),
+                    PROTO::IPV6 => ipv6::decode(next_data),
                     _ => println!("ether type: {:?}", ether_type_as_str(t)),
                 }
             }
