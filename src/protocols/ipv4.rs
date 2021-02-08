@@ -2,6 +2,7 @@ use crate::utils::cow_struct;
 use std::mem::size_of;
 
 use super::esp;
+use super::icmpv4;
 use super::ip;
 
 #[derive(Default, Debug, Clone, Copy)]
@@ -37,6 +38,7 @@ pub fn decode(data: &[u8]) {
                     let len_bytes: usize = ((header.version_and_header_len & 0xF) * 32 / 8).into();
                     match header.protocol {
                         ip::PROTO::ESP => esp::decode(&data[len_bytes..]),
+                        ip::PROTO::ICMP => icmpv4::decode(&data[len_bytes..]),
                         _ => println!("protocol::ipv4 {:?}", ip::protocol_as_str(header.protocol)),
                     }
                 }
