@@ -1,12 +1,16 @@
 [package]
 name = "eagle_eyes"
 version = "0.1.0"
-authors = ["atom"]
+authors = ["lsh", "atom"]
 edition = "2018"
 
 [[bin]]
 name = "capture"
-path = "src/capture.rs"
+path = "src/bin/capture.rs"
+
+[[bin]]
+name = "from_file"
+path = "src/bin/from_file.rs"
 
 [lib]
 name = "protocols"
