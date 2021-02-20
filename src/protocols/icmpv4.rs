@@ -14,7 +14,7 @@ use std::mem::size_of;
 /// * https://tools.ietf.org/html/rfc777
 #[derive(Default, Clone, Copy)]
 #[repr(C, packed)]
-pub struct ICMPV4Header {
+pub struct Header {
     /// type of the control message
     pub t: u8,
     /// code of the controle message
@@ -25,7 +25,7 @@ pub struct ICMPV4Header {
     pub rest: u32,
 }
 
-impl ICMPV4Header {
+impl Header {
     pub const SIZE: usize = size_of::<Self>();
 }
 
@@ -88,9 +88,9 @@ fn icmp_v4_code_to_str(code: u8) -> &'static str {
 /// Usually called by the proto on top of it, like the ethernetHeader struct, that will
 /// once the ethernet type have been detected to be arp, it can then decode the arp header using this.
 pub fn decode(data: &[u8]) {
-    if data.len() >= ICMPV4Header::SIZE {
-        let (header_bytes, _data) = data.split_at(ICMPV4Header::SIZE);
-        match cow_struct::<ICMPV4Header>(header_bytes) {
+    if data.len() >= Header::SIZE {
+        let (header_bytes, _data) = data.split_at(Header::SIZE);
+        match cow_struct::<Header>(header_bytes) {
             Some(header) => println!(
                 "protocol::icmpv4 type {:?}",
                 icmp_v4_code_to_str(header.t.to_be())

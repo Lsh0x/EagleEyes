@@ -52,7 +52,7 @@ fn op_as_str(op: u16) -> &'static str {
 
 /// ARP Header structure
 ///
-/// The ArpHeader define all the field of an arp request header
+/// The Header define all the field of an arp request header
 /// * `h_type` for the harware type, like ethernet for example
 /// * `p_type` for the protocol type, like ip for example
 /// * `h_len` for the hardware address length, corresponding of the number of bytes for the hardware address, example 6 for mac addresses
@@ -60,7 +60,7 @@ fn op_as_str(op: u16) -> &'static str {
 /// * `op_code` for the operation code, defined by the OP struct
 #[derive(Default, Clone, Copy)]
 #[repr(C, packed)]
-pub struct ArpHeader {
+pub struct Header {
     /// hardware type
     pub h_type: u16,
     /// protocol type
@@ -73,13 +73,13 @@ pub struct ArpHeader {
     pub op_code: u16,
 }
 
-impl ArpHeader {
+impl Header {
     pub const SIZE: usize = size_of::<Self>();
 }
 
-impl fmt::Debug for ArpHeader {
+impl fmt::Debug for Header {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        fmt.debug_struct("ArpHeader")
+        fmt.debug_struct("Header")
             .field("h_type", &self.h_type.to_be())
             .field("p_type", &ethernet::ether_type_as_str(self.p_type.to_be()))
             .field("h_len", &self.h_len.to_be())
@@ -111,9 +111,9 @@ impl fmt::Debug for ArpHeader {
 /// }
 ///```
 pub fn decode(data: &[u8]) {
-    if data.len() >= ArpHeader::SIZE {
-        let (header_bytes, _data) = data.split_at(ArpHeader::SIZE);
-        match cow_struct::<ArpHeader>(header_bytes) {
+    if data.len() >= Header::SIZE {
+        let (header_bytes, _data) = data.split_at(Header::SIZE);
+        match cow_struct::<Header>(header_bytes) {
             Some(header) => println!("{:#?}", header),
             None => println!("Error::arp {:?}", "Truncated payload"),
         }

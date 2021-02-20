@@ -27,7 +27,7 @@ use super::ip;
 
 #[derive(Default, Debug, Clone, Copy)]
 #[repr(C, packed)]
-pub struct IPV6Header {
+pub struct Header {
     /// contains version traffic class and flow label
     pub version_traffic_class_flow_label: u32,
     /// length of the payload
@@ -42,7 +42,7 @@ pub struct IPV6Header {
     pub dst: [u32; 4],
 }
 
-impl IPV6Header {
+impl Header {
     pub const SIZE: usize = size_of::<Self>();
 }
 
@@ -68,9 +68,9 @@ impl IPV6Header {
 /// }
 ///```
 pub fn decode(data: &[u8]) {
-    if data.len() >= IPV6Header::SIZE {
-        let (slice, next_data) = data.split_at(IPV6Header::SIZE);
-        match cow_struct::<IPV6Header>(slice) {
+    if data.len() >= Header::SIZE {
+        let (slice, next_data) = data.split_at(Header::SIZE);
+        match cow_struct::<Header>(slice) {
             Some(header) => {
                 let version = (header.version_traffic_class_flow_label & 0xF0) >> 4;
                 if version != 6 {

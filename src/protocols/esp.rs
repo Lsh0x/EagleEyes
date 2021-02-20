@@ -12,7 +12,7 @@ use std::mem::size_of;
 /// * https://tools.ietf.org/html/rfc8221
 #[derive(Default, Debug, Clone, Copy)]
 #[repr(C, packed)]
-pub struct ESPHeader {
+pub struct Header {
     /// security parameters index, random value to combine with the destination ip address and
     /// security protocol
     pub spi: u32,
@@ -21,14 +21,14 @@ pub struct ESPHeader {
     pub seq_number: u32,
 }
 
-impl ESPHeader {
+impl Header {
     pub const SIZE: usize = size_of::<Self>();
 }
 
 pub fn decode(data: &[u8]) {
-    if data.len() >= ESPHeader::SIZE {
-        let (header_bytes, _next_data) = data.split_at(ESPHeader::SIZE);
-        match cow_struct::<ESPHeader>(header_bytes) {
+    if data.len() >= Header::SIZE {
+        let (header_bytes, _next_data) = data.split_at(Header::SIZE);
+        match cow_struct::<Header>(header_bytes) {
             Some(_) => {
                 println!("protocol::esp decoded");
             }

@@ -7,13 +7,13 @@ use super::ipv6;
 
 #[derive(Debug, Default, Clone, Copy)]
 #[repr(C, packed)]
-pub struct EthernetHeader {
+pub struct Header {
     pub dhost: [u8; 6],
     pub shost: [u8; 6],
     pub ether_type: u16,
 }
 
-impl EthernetHeader {
+impl Header {
     pub const SIZE: usize = size_of::<Self>();
 }
 
@@ -69,9 +69,9 @@ pub fn ether_type_as_str(ether_type: u16) -> &'static str {
 }
 
 pub fn decode(data: &[u8]) {
-    if data.len() >= EthernetHeader::SIZE {
-        let (header_bytes, next_data) = data.split_at(EthernetHeader::SIZE);
-        match cow_struct::<EthernetHeader>(header_bytes) {
+    if data.len() >= Header::SIZE {
+        let (header_bytes, next_data) = data.split_at(Header::SIZE);
+        match cow_struct::<Header>(header_bytes) {
             Some(header) => {
                 let t = header.ether_type.to_be();
                 match t {
