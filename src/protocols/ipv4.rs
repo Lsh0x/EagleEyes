@@ -7,7 +7,7 @@ use super::ip;
 
 #[derive(Default, Debug, Clone, Copy)]
 #[repr(C, packed)]
-pub struct IPV4Header {
+pub struct Header {
     /// version of the ip protocol and the lenght of the header since it can be variable du to options
     pub version_and_header_len: u8,
     pub type_of_service: u8,
@@ -21,14 +21,14 @@ pub struct IPV4Header {
     pub dst: u32,
 }
 
-impl IPV4Header {
+impl Header {
     pub const SIZE: usize = size_of::<Self>();
 }
 
 pub fn decode(data: &[u8]) {
-    if data.len() >= IPV4Header::SIZE {
-        let (header_bytes, _next_data) = data.split_at(IPV4Header::SIZE);
-        match cow_struct::<IPV4Header>(header_bytes) {
+    if data.len() >= Header::SIZE {
+        let (header_bytes, _next_data) = data.split_at(Header::SIZE);
+        match cow_struct::<Header>(header_bytes) {
             Some(header) => {
                 let version = (header.version_and_header_len & 0xF0) >> 4;
                 if version != 4 {
