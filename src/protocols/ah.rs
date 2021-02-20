@@ -15,7 +15,7 @@ use super::ip;
 /// * https://tools.ietf.org/html/rfc4302
 #[derive(Default, Debug, Clone, Copy)]
 #[repr(C, packed)]
-pub struct AHHeader {
+pub struct Header {
     /// type of the next header
     pub next_header: u8,
     /// length of the authentication data following the header
@@ -30,14 +30,14 @@ pub struct AHHeader {
     pub seq_number: u32,
 }
 
-impl AHHeader {
+impl Header {
     pub const SIZE: usize = size_of::<Self>();
 }
 
 pub fn decode(data: &[u8]) {
-    if data.len() >= AHHeader::SIZE {
-        let (slice, _data) = data.split_at(AHHeader::SIZE);
-        match cow_struct::<AHHeader>(slice) {
+    if data.len() >= Header::SIZE {
+        let (slice, _data) = data.split_at(Header::SIZE);
+        match cow_struct::<Header>(slice) {
             Some(header) => {
                 println!(
                     "protocol {:?}",
