@@ -4,6 +4,7 @@ use std::mem::size_of;
 use super::esp;
 use super::icmpv4;
 use super::ip;
+use super::tcp;
 
 #[derive(Default, Debug, Clone, Copy)]
 #[repr(C, packed)]
@@ -36,9 +37,11 @@ pub fn decode(data: &[u8]) {
                 } else {
                     // ipv4 header with potential options included
                     let len_bytes: usize = ((header.version_and_header_len & 0xF) * 32 / 8).into();
+                    let next_data = &data[len_bytes..];
                     match header.protocol {
-                        ip::PROTO::ESP => esp::decode(&data[len_bytes..]),
-                        ip::PROTO::ICMP => icmpv4::decode(&data[len_bytes..]),
+                        ip::PROTO::ESP => esp::decode(next_data),
+                        ip::PROTO::ICMP => icmpv4::decode(next_data),
+                        ip::PROTO::TCP => tcp::decode(next_data),
                         _ => println!("protocol::ipv4 {:?}", ip::protocol_as_str(header.protocol)),
                     }
                 }
