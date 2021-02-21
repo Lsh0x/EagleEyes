@@ -10,6 +10,7 @@ pub mod protocols {
     pub mod ip;
     pub mod ipv4;
     pub mod ipv6;
+    pub mod tcp;
 }
 
 pub use protocols::ah;
@@ -21,3 +22,4 @@ pub use protocols::icmpv6;
 pub use protocols::ip;
 pub use protocols::ipv4;
 pub use protocols::ipv6;
+pub use protocols::tcp;
