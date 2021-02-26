@@ -1,3 +1,4 @@
+use eagleeyes::protocols::ethernet;
 use pcap::Capture;
 use std::env;
 
@@ -10,7 +11,7 @@ fn main() {
             match Capture::from_device(device_name.as_str()).unwrap().open() {
                 Ok(mut cap) => {
                     while let Ok(packet) = cap.next() {
-                        protocols::ethernet::decode(packet.data);
+                        ethernet::decode(packet.data);
                     }
                 }
                 Err(msg) => {

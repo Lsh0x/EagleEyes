@@ -1,3 +1,4 @@
+use eagleeyes::protocols::ethernet;
 use pcap::Capture;
 use std::env;
 
@@ -9,6 +10,6 @@ fn main() {
     }
     let mut cap = Capture::from_file(args[1].as_str()).unwrap();
     while let Ok(packet) = cap.next() {
-        protocols::ethernet::decode(packet.data);
+        ethernet::decode(packet.data);
     }
 }

@@ -13,8 +13,8 @@ name = "from_file"
 path = "src/bin/from_file.rs"
 
 [lib]
-name = "protocols"
-path = "src/protocols.rs"
+name = "eagleeyes"
+path = "src/lib.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
