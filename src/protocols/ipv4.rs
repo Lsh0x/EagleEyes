@@ -42,6 +42,7 @@ pub fn decode(data: &[u8]) {
                         ip::PROTO::ESP => esp::decode(next_data),
                         ip::PROTO::ICMP => icmpv4::decode(next_data),
                         ip::PROTO::TCP => tcp::decode(next_data),
+                        ip::PROTO::UDP => super::udp::decode(next_data),
                         _ => println!("protocol::ipv4 {:?}", ip::protocol_as_str(header.protocol)),
                     }
                 }
