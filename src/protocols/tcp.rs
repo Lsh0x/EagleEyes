@@ -38,12 +38,43 @@ impl Header {
     pub const SIZE: usize = size_of::<Self>();
 }
 
+pub fn display(h: &Header) -> String {
+    format!(
+        "TCP {} -> {} win={}",
+        h.src_port.to_be(),
+        h.dest_port.to_be(),
+        h.win_size.to_be()
+    )
+}
+
 pub fn decode(data: &[u8]) {
     if data.len() >= Header::SIZE {
         let (slice, _data) = data.split_at(Header::SIZE);
         match cow_struct::<Header>(slice) {
             Some(header) => {
-                println!("protocol::tcp data {:#02x?}", header.data_offset);
+                println!("{}", display(&header));
+                let src = header.src_port.to_be();
+                let dst = header.dest_port.to_be();
+                let payload = if data.len() > Header::SIZE {
+                    &data[Header::SIZE..]
+                } else {
+                    &data[0..0]
+                };
+                if src == 80
+                    || dst == 80
+                    || src == 8080
+                    || dst == 8080
+                    || src == 8000
+                    || dst == 8000
+                {
+                    super::http::decode(payload);
+                } else if src == 443 || dst == 443 {
+                    // try TLS first
+                    if !super::tls::decode(payload) {
+                        // not TLS, maybe HTTP/1.1 in clear on 443 (rare)
+                        super::http::decode(payload);
+                    }
+                }
             }
             None => println!("ip decode error: {:?}", "Truncated payload"),
         }

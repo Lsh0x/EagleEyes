@@ -78,14 +78,15 @@ fn icmp_v6_code_to_str(code: u8) -> &'static str {
 /// It do not do any allocation for performance reason.
 /// Usually called by the proto on top of it, like the ethernetHeader struct, that will
 /// once the ethernet type have been detected to be arp, it can then decode the arp header using this.
+pub fn display(h: &Header) -> String {
+    format!("ICMPv6 {}", icmp_v6_code_to_str(h.t.to_be()))
+}
+
 pub fn decode(data: &[u8]) {
     if data.len() >= Header::SIZE {
         let (header_bytes, _data) = data.split_at(Header::SIZE);
         match cow_struct::<Header>(header_bytes) {
-            Some(header) => println!(
-                "protocol::icmpv6 type {:?}",
-                icmp_v6_code_to_str(header.t.to_be())
-            ),
+            Some(header) => println!("{}", display(&header)),
             None => println!("Error::icmpv6 {:?}", "Truncated payload"),
         }
     }

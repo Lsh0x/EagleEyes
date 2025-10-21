@@ -68,16 +68,35 @@ pub fn ether_type_as_str(ether_type: u16) -> &'static str {
     }
 }
 
+fn mac_to_str(m: &[u8; 6]) -> String {
+    format!(
+        "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
+        m[0], m[1], m[2], m[3], m[4], m[5]
+    )
+}
+
+pub fn display(h: &Header) -> String {
+    let et = h.ether_type.to_be();
+    format!(
+        "Ether src={} dst={} eth_type={}",
+        mac_to_str(&h.shost),
+        mac_to_str(&h.dhost),
+        ether_type_as_str(et)
+    )
+}
+
 pub fn decode(data: &[u8]) {
     if data.len() >= Header::SIZE {
         let (header_bytes, next_data) = data.split_at(Header::SIZE);
         match cow_struct::<Header>(header_bytes) {
             Some(header) => {
                 let t = header.ether_type.to_be();
+                println!("{}", display(&header));
                 match t {
                     PROTO::ARP => arp::decode(next_data),
                     PROTO::IPV4 => ipv4::decode(next_data),
                     PROTO::IPV6 => ipv6::decode(next_data),
+                    PROTO::VLAN => super::vlan::decode(next_data),
                     _ => println!("ether type: {:?}", ether_type_as_str(t)),
                 }
             }

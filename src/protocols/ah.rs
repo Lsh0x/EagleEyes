@@ -34,15 +34,21 @@ impl Header {
     pub const SIZE: usize = size_of::<Self>();
 }
 
+pub fn display(h: &Header) -> String {
+    format!(
+        "AH next={} spi={} seq={}",
+        super::ip::protocol_as_str(h.next_header.to_be()),
+        h.spi.to_be(),
+        h.seq_number.to_be()
+    )
+}
+
 pub fn decode(data: &[u8]) {
     if data.len() >= Header::SIZE {
         let (slice, _data) = data.split_at(Header::SIZE);
         match cow_struct::<Header>(slice) {
             Some(header) => {
-                println!(
-                    "protocol {:?}",
-                    ip::protocol_as_str(header.next_header.to_be())
-                );
+                println!("{}", display(&header));
             }
             None => println!("ip decode error: {:?}", "Truncated payload"),
         }

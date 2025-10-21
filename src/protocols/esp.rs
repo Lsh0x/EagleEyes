@@ -25,12 +25,16 @@ impl Header {
     pub const SIZE: usize = size_of::<Self>();
 }
 
+pub fn display(h: &Header) -> String {
+    format!("ESP spi={} seq={}", h.spi.to_be(), h.seq_number.to_be())
+}
+
 pub fn decode(data: &[u8]) {
     if data.len() >= Header::SIZE {
         let (header_bytes, _next_data) = data.split_at(Header::SIZE);
         match cow_struct::<Header>(header_bytes) {
-            Some(_) => {
-                println!("protocol::esp decoded");
+            Some(h) => {
+                println!("{}", display(&h));
             }
             None => println!("ip::esp decode error: {:?}", "Truncated payload"),
         }

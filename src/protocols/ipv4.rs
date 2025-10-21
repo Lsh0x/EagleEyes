@@ -26,6 +26,25 @@ impl Header {
     pub const SIZE: usize = size_of::<Self>();
 }
 
+pub fn display(h: &Header) -> String {
+    let src = h.src.to_be_bytes();
+    let dst = h.dst.to_be_bytes();
+    format!(
+        "IPv4 {}.{}.{}.{} -> {}.{}.{}.{} proto={} ttl={} len={}",
+        src[0],
+        src[1],
+        src[2],
+        src[3],
+        dst[0],
+        dst[1],
+        dst[2],
+        dst[3],
+        super::ip::protocol_as_str(h.protocol),
+        h.time_to_live,
+        h.total_len.to_be()
+    )
+}
+
 pub fn decode(data: &[u8]) {
     if data.len() >= Header::SIZE {
         let (header_bytes, _next_data) = data.split_at(Header::SIZE);
@@ -38,11 +57,13 @@ pub fn decode(data: &[u8]) {
                     // ipv4 header with potential options included
                     let len_bytes: usize = ((header.version_and_header_len & 0xF) * 32 / 8).into();
                     let next_data = &data[len_bytes..];
+                    println!("{}", display(&header));
                     match header.protocol {
                         ip::PROTO::ESP => esp::decode(next_data),
                         ip::PROTO::ICMP => icmpv4::decode(next_data),
                         ip::PROTO::TCP => tcp::decode(next_data),
                         ip::PROTO::UDP => super::udp::decode(next_data),
+                        ip::PROTO::GRE => super::gre::decode(next_data),
                         _ => println!("protocol::ipv4 {:?}", ip::protocol_as_str(header.protocol)),
                     }
                 }

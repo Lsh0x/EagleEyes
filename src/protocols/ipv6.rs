@@ -46,6 +46,17 @@ impl Header {
     pub const SIZE: usize = size_of::<Self>();
 }
 
+pub fn display(h: &Header) -> String {
+    let src = h.src;
+    let dst = h.dst;
+    format!(
+        "IPv6 src={:x}:{:x}:{:x}:{:x}:{:x}:{:x}:{:x}:{:x} dst={:x}:{:x}:{:x}:{:x}:{:x}:{:x}:{:x}:{:x} next={} hop_limit={}",
+        src[0],src[1],src[2],src[3],src[4],src[5],src[6],src[7],
+        dst[0],dst[1],dst[2],dst[3],dst[4],dst[5],dst[6],dst[7],
+        super::ip::protocol_as_str(h.next_header), h.hop_limit
+    )
+}
+
 /// Decode an ipv6 header packet for a given &[u8]
 ///
 /// Will cast the given &[u8] into an ipv6 header struct allowing to interact with it.
