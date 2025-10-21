@@ -24,7 +24,7 @@ pub fn display(h: &Header) -> String {
     let dst = u16::from_be(h.dest_port);
     let len = u16::from_be(h.len);
     format!(
-        "UDP src={} dst={} len={} checksum=0x{:04x}",
+        "[UDP] src={} dst={} len={} checksum=0x{:04x}",
         src,
         dst,
         len,

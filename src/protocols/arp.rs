@@ -110,11 +110,21 @@ impl fmt::Debug for Header {
 ///     None => println!("Error::ethernet {:?}", "Truncated payload"),
 /// }
 ///```
+pub fn display(h: &Header) -> String {
+    format!(
+        "[ARP] op={} hlen={} plen={} ptype={}",
+        op_as_str(h.op_code.to_be()),
+        h.h_len,
+        h.p_len,
+        ethernet::ether_type_as_str(h.p_type.to_be())
+    )
+}
+
 pub fn decode(data: &[u8]) {
     if data.len() >= Header::SIZE {
         let (header_bytes, _data) = data.split_at(Header::SIZE);
         match cow_struct::<Header>(header_bytes) {
-            Some(header) => println!("{:#?}", header),
+            Some(header) => println!("{}", display(&header)),
             None => println!("Error::arp {:?}", "Truncated payload"),
         }
     }

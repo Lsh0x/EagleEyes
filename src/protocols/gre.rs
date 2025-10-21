@@ -14,7 +14,7 @@ impl Header {
 
 pub fn display(h: &Header) -> String {
     format!(
-        "GRE proto=0x{:04x} flags=0x{:04x}",
+        "[GRE] proto=0x{:04x} flags=0x{:04x}",
         h.protocol_type.to_be(),
         h.flags_version.to_be()
     )

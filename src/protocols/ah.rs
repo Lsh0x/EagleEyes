@@ -36,7 +36,7 @@ impl Header {
 
 pub fn display(h: &Header) -> String {
     format!(
-        "AH next={} spi={} seq={}",
+        "[AH] next={} spi={} seq={}",
         super::ip::protocol_as_str(h.next_header.to_be()),
         h.spi.to_be(),
         h.seq_number.to_be()

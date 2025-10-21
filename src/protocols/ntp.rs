@@ -22,7 +22,7 @@ pub fn display(h: &Header) -> String {
     let vn = (h.flags & 0b0011_1000) >> 3;
     let mode = h.flags & 0b0000_0111;
     format!(
-        "NTP LI={} VN={} MODE={} stratum={}",
+        "[NTP] LI={} VN={} MODE={} stratum={}",
         li, vn, mode, h.stratum
     )
 }
