@@ -1,5 +1,6 @@
 pub mod ah;
 pub mod arp;
+pub mod dhcp;
 pub mod dns;
 pub mod esp;
 pub mod ethernet;
@@ -10,6 +11,9 @@ pub mod icmpv6;
 pub mod ip;
 pub mod ipv4;
 pub mod ipv6;
+pub mod mdns;
+pub mod ntp;
+pub mod quic;
 pub mod tcp;
 pub mod tls;
 pub mod udp;

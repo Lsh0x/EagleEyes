@@ -41,9 +41,17 @@ pub fn decode(data: &[u8]) {
         Some(h) => {
             let src = u16::from_be(h.src_port);
             let dst = u16::from_be(h.dest_port);
-            // simple DNS detection
+            // protocol detection by port
             if src == 53 || dst == 53 {
                 dns::decode(payload);
+            } else if src == 5353 || dst == 5353 {
+                super::mdns::decode(payload);
+            } else if src == 67 || dst == 67 || src == 68 || dst == 68 {
+                super::dhcp::decode(payload);
+            } else if src == 123 || dst == 123 {
+                super::ntp::decode(payload);
+            } else if src == 443 || dst == 443 {
+                super::quic::decode(payload);
             } else {
                 println!("{}", display(&h));
             }
