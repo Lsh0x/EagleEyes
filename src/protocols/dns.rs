@@ -17,6 +17,17 @@ impl Header {
     pub const SIZE: usize = size_of::<Self>();
 }
 
+pub fn display(h: &Header) -> String {
+    format!(
+        "DNS id={} qd={} an={} ns={} ar={}",
+        u16::from_be(h.id),
+        u16::from_be(h.qdcount),
+        u16::from_be(h.ancount),
+        u16::from_be(h.nscount),
+        u16::from_be(h.arcount)
+    )
+}
+
 pub fn decode(data: &[u8]) {
     if data.len() < Header::SIZE {
         println!("dns: truncated");
@@ -25,14 +36,7 @@ pub fn decode(data: &[u8]) {
     let (hdr_bytes, _rest) = data.split_at(Header::SIZE);
     match cow_struct::<Header>(hdr_bytes) {
         Some(h) => {
-            println!(
-                "protocol::dns id={} qd={} an={} ns={} ar={}",
-                u16::from_be(h.id),
-                u16::from_be(h.qdcount),
-                u16::from_be(h.ancount),
-                u16::from_be(h.nscount),
-                u16::from_be(h.arcount)
-            );
+            println!("{}", display(&h));
         }
         None => println!("dns decode error: {:?}", "Truncated payload"),
     }

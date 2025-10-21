@@ -19,6 +19,19 @@ impl Header {
     pub const SIZE: usize = size_of::<Self>();
 }
 
+pub fn display(h: &Header) -> String {
+    let src = u16::from_be(h.src_port);
+    let dst = u16::from_be(h.dest_port);
+    let len = u16::from_be(h.len);
+    format!(
+        "UDP src={} dst={} len={} checksum=0x{:04x}",
+        src,
+        dst,
+        len,
+        u16::from_be(h.checksum)
+    )
+}
+
 pub fn decode(data: &[u8]) {
     if data.len() < Header::SIZE {
         return;
@@ -32,12 +45,7 @@ pub fn decode(data: &[u8]) {
             if src == 53 || dst == 53 {
                 dns::decode(payload);
             } else {
-                println!(
-                    "protocol::udp src={} dst={} len={}",
-                    src,
-                    dst,
-                    u16::from_be(h.len)
-                );
+                println!("{}", display(&h));
             }
         }
         None => println!("udp decode error: {:?}", "Truncated payload"),
