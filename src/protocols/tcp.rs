@@ -89,6 +89,17 @@ pub fn decode(data: &[u8]) {
                     super::ldap::decode(payload);
                 } else if src == 636 || dst == 636 {
                     super::ldaps::decode(payload);
+                } else if src == 53 || dst == 53 {
+                    // DNS over TCP (2-byte length prefix)
+                    if payload.len() >= 2 {
+                        let len = u16::from_be_bytes([payload[0], payload[1]]) as usize;
+                        if payload.len() >= 2 + len {
+                            println!("DNS/TCP len={}", len);
+                            super::dns::decode(&payload[2..2 + len]);
+                        } else {
+                            println!("DNS/TCP (truncated) {}B", payload.len());
+                        }
+                    }
                 } else if src == 853 || dst == 853 {
                     // DNS over TLS (DoT)
                     if !super::tls::decode(payload) {
@@ -102,10 +113,10 @@ pub fn decode(data: &[u8]) {
                     super::rtsp::decode(payload);
                 } else if src == 5060 || dst == 5060 {
                     super::sip::decode(payload);
-                } else if src == 443 || dst == 443 {
-                    // try TLS first
+                } else if src == 443 || dst == 443 || src == 8443 || dst == 8443 {
+                    // try TLS first (HTTPS)
                     if !super::tls::decode(payload) {
-                        // WebSocket/HTTP over 443 in clear (rare) and DoH without TLS (non-standard)
+                        // WebSocket/HTTP over 443/8443 in clear (rare) and DoH without TLS (non-standard)
                         if !super::websocket::decode(payload) {
                             if !super::doh::decode(payload) {
                                 super::http::decode(payload);

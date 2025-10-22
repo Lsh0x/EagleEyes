@@ -55,6 +55,7 @@ pub mod smtps;
 pub mod snmp;
 pub mod ssdp;
 pub mod ssh;
+pub mod ssl;
 pub mod stomp;
 pub mod stp;
 pub mod stun;
