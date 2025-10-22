@@ -38,11 +38,15 @@ pub fn decode(data: &[u8]) {
     }
     let (hdr, _) = data.split_at(Header::SIZE);
     if let Some(h) = cow_struct::<Header>(hdr) {
+        let m = (h.m_pt & 0x80) != 0;
         let pt = h.m_pt & 0x7F;
+        let cc = h.v_p_x_cc & 0x0F;
         println!(
-            "RTP v={} pt={} seq={} ts={} ssrc=0x{:08x}",
+            "RTP v={} pt={} M={} CC={} seq={} ts={} ssrc=0x{:08x}",
             (h.v_p_x_cc >> 6) & 3,
             pt,
+            m as u8,
+            cc,
             u16::from_be(h.seq),
             u32::from_be(h.timestamp),
             u32::from_be(h.ssrc)
