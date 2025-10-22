@@ -89,6 +89,11 @@ pub fn decode(data: &[u8]) {
                     super::ldap::decode(payload);
                 } else if src == 636 || dst == 636 {
                     super::ldaps::decode(payload);
+                } else if src == 853 || dst == 853 {
+                    // DNS over TLS (DoT)
+                    if !super::tls::decode(payload) {
+                        super::dot::decode(payload);
+                    }
                 } else if src == 3389 || dst == 3389 {
                     super::rdp::decode(payload);
                 } else if src == 139 || dst == 139 || src == 445 || dst == 445 {
@@ -100,9 +105,11 @@ pub fn decode(data: &[u8]) {
                 } else if src == 443 || dst == 443 {
                     // try TLS first
                     if !super::tls::decode(payload) {
-                        // WebSocket upgrade on 443 without TLS or plain HTTP
+                        // WebSocket/HTTP over 443 in clear (rare) and DoH without TLS (non-standard)
                         if !super::websocket::decode(payload) {
-                            super::http::decode(payload);
+                            if !super::doh::decode(payload) {
+                                super::http::decode(payload);
+                            }
                         }
                     }
                 } else if src == 80
@@ -112,9 +119,11 @@ pub fn decode(data: &[u8]) {
                     || src == 8000
                     || dst == 8000
                 {
-                    // try WebSocket upgrade; if not, fall back to HTTP
+                    // try WebSocket or DoH; if not, fall back to HTTP
                     if !super::websocket::decode(payload) {
-                        super::http::decode(payload);
+                        if !super::doh::decode(payload) {
+                            super::http::decode(payload);
+                        }
                     }
                 } else if src == 1883 || dst == 1883 {
                     super::mqtt::decode(payload);

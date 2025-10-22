@@ -8,6 +8,8 @@ pub mod dccp;
 pub mod dhcp;
 pub mod dhcpv6;
 pub mod dns;
+pub mod doh;
+pub mod dot;
 pub mod eigrp;
 pub mod esp;
 pub mod ethernet;
