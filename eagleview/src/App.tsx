@@ -3,7 +3,7 @@ import './App.css'
 
 import { parseCapture } from './lib/parsers'
 import { decodePacket, extractL4Payload } from './lib/decoders'
-import StatsPanel from './components/StatsPanel'
+import LeftPanel from './components/LeftPanel'
 
 export type PacketRow = {
   index: number
@@ -49,7 +49,8 @@ function App() {
   const [txnGrouped, setTxnGrouped] = useState<boolean>(false)
   const [txnFocus, setTxnFocus] = useState<string | null>(null)
   const [expandedTxns, setExpandedTxns] = useState<Set<string>>(new Set())
-  const [showStats, setShowStats] = useState<boolean>(false)
+  const [showPanel, setShowPanel] = useState<boolean>(false)
+  const [panelTab, setPanelTab] = useState<'packet'|'stats'>('packet')
 
   const availableProtos = useMemo(() => {
     const set = new Set<string>()
@@ -296,6 +297,15 @@ function App() {
     return s
   }
 
+  const selectedPacket = useMemo(() => {
+    if (!selectedIndex || !parsedRef.current) return null
+    const p = parsedRef.current.packets[selectedIndex - 1]
+    const dec = decodePacket(p)
+    const payload = extractL4Payload(p.data)
+    const hex = payload ? hexPreview(p.data, payload.offset, Math.min(64, payload.length)) : 'N/A'
+    return { dec, hex }
+  }, [selectedIndex, packets])
+
   function buildFlowKey(proto?: string, src?: string, dst?: string, sp?: number, dp?: number): string | undefined {
     const pr = (proto || '').toUpperCase()
     // Track only for TCP/UDP/DNS for flow
@@ -436,7 +446,7 @@ function App() {
       <header className="topbar">
         <div className="brand">EagleView</div>
         <div className="actions" style={{display:'flex', gap:8}}>
-          <button className="btn" onClick={() => setShowStats(v=>!v)}>{showStats? 'Hide stats' : 'Show stats'}</button>
+          <button className="btn" onClick={() => setShowPanel(v=>!v)}>{showPanel? 'Hide panel' : 'Show panel'}</button>
           <label className="btn" htmlFor="file-input">
             + Open PCAP/PCAPNG
           </label>
@@ -532,43 +542,6 @@ function App() {
               <button className="chip active" onClick={() => setTxnFocus(null)} title="Clear transaction focus">Txn ×</button>
             )}
           </div>
-          {selectedIndex && parsedRef.current ? (
-            <section className="details">
-              {(() => {
-                const p = parsedRef.current!.packets[selectedIndex - 1]
-                const dec = decodePacket(p)
-                const payload = extractL4Payload(p.data)
-                return (
-                  <div className="details-grid">
-                    <div>
-                      <div className="details-title">Details</div>
-                      <div>L2: {dec.l2?.srcMac} → {dec.l2?.dstMac}</div>
-                      <div>L3: {dec.l3?.proto} {dec.l3?.src} → {dec.l3?.dst}</div>
-                      <div>L4: {dec.l4?.proto} {dec.l4?.srcPort ?? ''} → {dec.l4?.dstPort ?? ''} {dec.l4?.tcpFlags ? `[${dec.l4.tcpFlags}]` : ''}</div>
-                      {dec.meta?.dns && (
-                        <div>
-                          {(dec.meta.dns.qr ? 'DNSR' : 'DNSQ')}: {dec.meta.dns.name || '(no-name)'}{dec.meta.dns.qtypeName ? ' ' + dec.meta.dns.qtypeName : ''}|{dec.meta.dns.id}
-                        </div>
-                      )}
-                      {dec.meta?.arp && (<div>ARP: op={dec.meta.arp.op} {dec.meta.arp.spa} → {dec.meta.arp.tpa}</div>)}
-                    </div>
-                    <div>
-                      <div className="details-title">Payload (first 64B)</div>
-                      <pre className="hex">
-{payload ? hexPreview(p.data, payload.offset, Math.min(64, payload.length)) : 'N/A'}
-                      </pre>
-                    </div>
-                    {(dec.l4?.proto === 'TCP' || dec.l4?.proto === 'UDP') && (
-                      <div className="actions-row">
-                        <button className="chip" onClick={() => setFlowKey(packets[selectedIndex-1].flowKey || null)} title="Filter to this conversation">Filter flow</button>
-                        <button className="chip" onClick={() => { const fk = packets[selectedIndex-1].flowKey; if (fk) setStreamKey(fk) }} title="Follow stream">Follow stream</button>
-                      </div>
-                    )}
-                  </div>
-                )
-              })()}
-            </section>
-          ) : null}
           {ipFocus && (
             <div className="sorter">
               <label>
@@ -803,11 +776,9 @@ function App() {
           </div>
         </div>
       )}
-      {/* Side stats panel */}
-      <div className={"side-panel " + (showStats ? 'open' : '')}>
-        <StatsPanel stats={stats as any} onClose={() => setShowStats(false)} />
-      </div>
-      <button className={"side-tab " + (showStats ? 'active' : '')} onClick={() => setShowStats(v=>!v)} title="Stats">▸</button>
+      {/* Left side panel with tabs */}
+      <LeftPanel open={showPanel} onClose={() => setShowPanel(false)} tab={panelTab} setTab={setPanelTab} stats={stats as any} packet={selectedPacket} />
+      <button className={"side-tab " + (showPanel ? 'active' : '')} onClick={() => setShowPanel(v=>!v)} title="Panel">▸</button>
     </div>
   )
 }
