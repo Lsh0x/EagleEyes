@@ -1,73 +1,50 @@
-# React + TypeScript + Vite
+# EagleView (Web UI)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+EagleView is a lightweight, client-side dashboard for exploring packet captures (pcap/pcapng) with protocol-aware summaries, flow/transaction grouping, and quick hex previews. It runs fully in the browser—no backend required.
 
-Currently, two official plugins are available:
+## Features
+- Load .pcap or .pcapng files (drag & drop or file picker)
+- Protocol tagging at a glance (ARP/DNS/TCP/UDP/HTTP/TLS/SMB/SIP/RTP/…)
+- Filters by protocol, IP/peer, flow, simple tokens (e.g. `proto:DNS ip:10.0.0.1`)
+- Views: flat list, grouped by peer, grouped by transaction (DNS, TCP SYN/ACK, etc.)
+- Stream view: extract best-effort L4 payloads for quick inspection
+- Supports VLAN, PPPoE, MPLS, IPv4/IPv6, and many L4/L7 protocols
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+See protocol coverage and where decoding happens in `../docs/PROTOCOLS.md` and `src/lib/decoders.ts`.
 
-## React Compiler
+## Getting started
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Prereqs: Node.js (LTS) and pnpm/npm/yarn.
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```sh
+# inside eagleview/
+npm install
+npm run dev
+# build for production
+npm run build
+# preview local build
+npm run preview
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Then open the app, drop a pcap/pcapng file, and explore.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## How it works
+- `src/lib/parsers.ts`: minimal PCAP/PCAPNG readers in the browser
+- `src/lib/decoders.ts`: fast, heuristic L2/L3/L4/L7 tagger (no heavy parsing)
+- `src/App.tsx`: UI with list/group/txn views, filters, and stream extractor
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+The tagger recognizes common protocols by header/port/heuristics (e.g., QUIC, RTP/RTCP, SIP, SMB, TLS SNI presence, DHCP, DNS names). It aims to be helpful and fast—not a strict validator.
+
+## Tips
+- Use the protocol chips to quickly filter; click again to toggle multiple
+- Type filters to refine results (e.g., `proto:TCP ip:192.168.1.10 port:443 dns:example.com`)
+- Switch to Grouped view to see peers, bytes, and protocol mix; expand for samples
+- Turn on Transaction grouping to bucket DNS IDs and TCP handshakes
+- Use Stream view to preview application payload slices for a selected flow
+
+## Related
+- Core Rust decoders live in `../src/protocols/*` (CLI utilities).
+- High-level protocol list: `../README.md` and `../docs/PROTOCOLS.md`.
+
+## License
+MIT
