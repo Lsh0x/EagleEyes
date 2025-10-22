@@ -46,17 +46,22 @@ impl Header {
     pub const SIZE: usize = size_of::<Self>();
 }
 
-fn ipv6_to_str(words: [u32;4]) -> String {
+fn ipv6_to_str(words: [u32; 4]) -> String {
     let b0 = words[0].to_be_bytes();
     let b1 = words[1].to_be_bytes();
     let b2 = words[2].to_be_bytes();
     let b3 = words[3].to_be_bytes();
-    let bytes = [b0[0],b0[1],b0[2],b0[3], b1[0],b1[1],b1[2],b1[3], b2[0],b2[1],b2[2],b2[3], b3[0],b3[1],b3[2],b3[3]];
-    let mut parts = [0u16;8];
-    for i in 0..8 { parts[i] = u16::from_be_bytes([bytes[2*i], bytes[2*i+1]]); }
+    let bytes = [
+        b0[0], b0[1], b0[2], b0[3], b1[0], b1[1], b1[2], b1[3], b2[0], b2[1], b2[2], b2[3], b3[0],
+        b3[1], b3[2], b3[3],
+    ];
+    let mut parts = [0u16; 8];
+    for i in 0..8 {
+        parts[i] = u16::from_be_bytes([bytes[2 * i], bytes[2 * i + 1]]);
+    }
     format!(
         "{:x}:{:x}:{:x}:{:x}:{:x}:{:x}:{:x}:{:x}",
-        parts[0],parts[1],parts[2],parts[3],parts[4],parts[5],parts[6],parts[7]
+        parts[0], parts[1], parts[2], parts[3], parts[4], parts[5], parts[6], parts[7]
     )
 }
 
@@ -67,7 +72,8 @@ pub fn display(h: &Header) -> String {
         "IPv6 src={} dst={} next={} hop_limit={}",
         src,
         dst,
-        super::ip::protocol_as_str(h.next_header), h.hop_limit
+        super::ip::protocol_as_str(h.next_header),
+        h.hop_limit
     )
 }
 
