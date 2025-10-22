@@ -1,4 +1,4 @@
-use eagleeyes::protocols::{ethernet, ip};
+use eagleeyes::protocols::{ethernet, ip, loopback};
 use eagleeyes::utils::cow_struct;
 use pcap::Capture;
 use std::env;
@@ -60,6 +60,7 @@ fn main() {
             let mut first_ts: Option<(i64, i64)> = None;
             let mut last_ts: Option<(i64, i64)> = None;
 
+            let dlt = cap.get_datalink().0 as i32;
             while let Ok(packet) = cap.next() {
                 let ts_sec = packet.header.ts.tv_sec as i64;
                 let ts_usec = packet.header.ts.tv_usec as i64;
@@ -138,7 +139,30 @@ fn main() {
                 }
                 println!("");
 
-                ethernet::decode(packet.data);
+                // Dispatch by datalink
+                match dlt {
+                    1 => ethernet::decode(packet.data),       // EN10MB
+                    0 | 108 => loopback::decode(packet.data), // NULL/LOOP
+                    101 => {
+                        // RAW IP
+                        if packet.data.len() >= 1 {
+                            let v = (packet.data[0] & 0xF0) >> 4;
+                            if v == 4 {
+                                eagleeyes::protocols::ipv4::decode(packet.data);
+                            } else if v == 6 {
+                                eagleeyes::protocols::ipv6::decode(packet.data);
+                            } else {
+                                println!("RAW ({}B)", packet.data.len());
+                            }
+                        }
+                    }
+                    227 => eagleeyes::protocols::can::decode(packet.data),
+                    239 => eagleeyes::protocols::nflog::decode(packet.data),
+                    187 | 201 => eagleeyes::protocols::bluetooth::decode(packet.data),
+                    189 | 220 => eagleeyes::protocols::usb::decode(packet.data),
+                    212 => eagleeyes::protocols::lin::decode(packet.data),
+                    _ => ethernet::decode(packet.data),
+                }
             }
 
             println!("summary: packets={}, bytes={}", packets, bytes);
