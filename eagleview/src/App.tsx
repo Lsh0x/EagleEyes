@@ -775,7 +775,7 @@ function App() {
         </div>
       )}
       {/* Left side panel with tabs */}
-      <LeftPanel open={true} onClose={() => {}} tab={panelTab} setTab={setPanelTab} stats={stats as any} packet={selectedPacket} />
+      <LeftPanel open={true} onClose={() => {}} tab={panelTab} setTab={setPanelTab} stats={stats as any} packet={selectedPacket} onProtoClick={(pr)=>toggleProto(pr)} />
     </div>
   )
 }

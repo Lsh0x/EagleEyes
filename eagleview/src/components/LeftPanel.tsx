@@ -8,6 +8,7 @@ export default function LeftPanel({
   setTab,
   stats,
   packet,
+  onProtoClick,
 }: {
   open: boolean
   onClose: () => void
@@ -15,6 +16,7 @@ export default function LeftPanel({
   setTab: (t: 'packet' | 'stats') => void
   stats: any
   packet: { dec: Decoded; hex: string } | null
+  onProtoClick?: (proto: string) => void
 }) {
   return (
     <div className={'side-panel ' + (open ? 'open' : '')}>
@@ -51,7 +53,7 @@ export default function LeftPanel({
           <div className="empty">No packet selected</div>
         )
       ) : (
-        <StatsPanel stats={stats} onClose={onClose} />
+        <StatsPanel stats={stats} onClose={onClose} onProtoClick={onProtoClick} />
       )}
     </div>
   )
