@@ -5,9 +5,9 @@
 EagleEyes aims to decode net traffic and analyse it using pcap to ensure security purposes.
 
 ### Supported protocols (decoder coverage)
+Layer 2 / 2.5
 - Ethernet II (Ethertype)
 - IEEE 802.3 + LLC/SNAP
-- ARP
 - VLAN 802.1Q (single-tag)
 - STP (Spanning Tree, minimal BPDU)
 - LLDP (minimal TLVs)
@@ -16,6 +16,23 @@ EagleEyes aims to decode net traffic and analyse it using pcap to ensure securit
 - MPLS (shim stack; IPv4/IPv6 payload dispatch)
 - HDLC (minimal)
 - Frame Relay (minimal)
+
+Layer 3
+- IPv4, IPv6
+- ARP
+- IPsec AH/ESP (headers only)
+
+Layer 4 / Upper
+- TCP, UDP
+- ICMPv4, ICMPv6
+- DNS
+- DHCP
+- NTP
+- mDNS
+- QUIC (minimal)
+- GRE (header)
+- HTTP (minimal)
+- TLS (ClientHello SNI)
 
 ## Quick start
 
@@ -104,6 +121,13 @@ Alternatively, request an administrator to enable non-root BPF access (one-time 
 - No packets captured: confirm the correct interface (see `list`) and that traffic exists.
 
 ## Development
+
+### How to check and add a protocol
+- Search for existing support: `grep -R "proto" src/protocols` or look at `src/protocols/mod.rs`.
+- For L2: add dispatch in `src/protocols/ethernet.rs` (Ethertype or 802.3 LLC/SNAP) and create `src/protocols/<proto>.rs` with `decode(&[u8])`.
+- For L3/L4: wire from `ipv4.rs`/`ipv6.rs`/`udp.rs`/`tcp.rs` based on protocol numbers or ports.
+- Update UI tags in `eagleview/src/lib/decoders.ts` if you want badges/summary.
+- Document in README under Supported protocols.
 
 Please read the following [guideline](doc/guideline.md).
 
