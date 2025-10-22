@@ -97,6 +97,14 @@ pub fn decode(data: &[u8]) {
                     super::rtsp::decode(payload);
                 } else if src == 5060 || dst == 5060 {
                     super::sip::decode(payload);
+                } else if src == 443 || dst == 443 {
+                    // try TLS first
+                    if !super::tls::decode(payload) {
+                        // WebSocket upgrade on 443 without TLS or plain HTTP
+                        if !super::websocket::decode(payload) {
+                            super::http::decode(payload);
+                        }
+                    }
                 } else if src == 80
                     || dst == 80
                     || src == 8080
@@ -104,11 +112,8 @@ pub fn decode(data: &[u8]) {
                     || src == 8000
                     || dst == 8000
                 {
-                    super::http::decode(payload);
-                } else if src == 443 || dst == 443 {
-                    // try TLS first
-                    if !super::tls::decode(payload) {
-                        // not TLS, maybe HTTP/1.1 in clear on 443 (rare)
+                    // try WebSocket upgrade; if not, fall back to HTTP
+                    if !super::websocket::decode(payload) {
                         super::http::decode(payload);
                     }
                 } else if src == 1883 || dst == 1883 {
@@ -131,6 +136,17 @@ pub fn decode(data: &[u8]) {
                     super::redis::decode(payload);
                 } else if src == 11211 || dst == 11211 {
                     super::memcached::decode(payload);
+                } else if src == 88 || dst == 88 {
+                    super::kerberos::decode(payload);
+                } else if src == 5355 || dst == 5355 {
+                    super::llmnr::decode(payload);
+                } else if src == 3478 || dst == 3478 {
+                    super::stun::decode(payload);
+                } else if src == 5349 || dst == 5349 {
+                    // STUN/TURN over TLS
+                    if !super::tls::decode(payload) {
+                        super::stun::decode(payload);
+                    }
                 }
             }
             None => println!("ip decode error: {:?}", "Truncated payload"),
