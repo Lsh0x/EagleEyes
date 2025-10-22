@@ -16,12 +16,18 @@ impl Header {
 }
 
 pub fn looks_like(data: &[u8]) -> bool {
-    if data.len() < Header::SIZE { return false; }
+    if data.len() < Header::SIZE {
+        return false;
+    }
     let v = data[0] & 0xC0; // version bits
-    if v != 0x80 { return false; }
+    if v != 0x80 {
+        return false;
+    }
     let pt = data[1] & 0x7F;
     // Exclude RTCP payload type range
-    if (200..=204).contains(&pt) { return false; }
+    if (200..=204).contains(&pt) {
+        return false;
+    }
     true
 }
 

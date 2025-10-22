@@ -70,6 +70,8 @@ pub fn decode(data: &[u8]) {
                 super::rtp::decode(payload);
             } else if src == 443 || dst == 443 {
                 super::quic::decode(payload);
+            } else if src == 5683 || dst == 5683 {
+                super::coap::decode(payload);
             } else {
                 println!("{}", display(&h));
             }

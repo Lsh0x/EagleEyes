@@ -111,6 +111,26 @@ pub fn decode(data: &[u8]) {
                         // not TLS, maybe HTTP/1.1 in clear on 443 (rare)
                         super::http::decode(payload);
                     }
+                } else if src == 1883 || dst == 1883 {
+                    super::mqtt::decode(payload);
+                } else if src == 8883 || dst == 8883 {
+                    // MQTT over TLS
+                    if !super::tls::decode(payload) {
+                        super::mqtt::decode(payload);
+                    }
+                } else if src == 5672 || dst == 5672 {
+                    super::amqp::decode(payload);
+                } else if src == 5671 || dst == 5671 {
+                    // AMQP over TLS
+                    if !super::tls::decode(payload) {
+                        super::amqp::decode(payload);
+                    }
+                } else if src == 61613 || dst == 61613 || src == 61614 || dst == 61614 {
+                    super::stomp::decode(payload);
+                } else if src == 6379 || dst == 6379 {
+                    super::redis::decode(payload);
+                } else if src == 11211 || dst == 11211 {
+                    super::memcached::decode(payload);
                 }
             }
             None => println!("ip decode error: {:?}", "Truncated payload"),

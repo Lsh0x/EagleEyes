@@ -25,53 +25,86 @@ fn emit_pkt(f: &mut File, payload: &[u8]) -> std::io::Result<()> {
 fn eth_ipv4_udp(sport: u16, dport: u16, upayload: &[u8]) -> Vec<u8> {
     let mut v = Vec::new();
     let eth = [
-        0,1,2,3,4,5, // dst
-        6,7,8,9,10,11, // src
-        0x08,0x00 // IPv4
+        0, 1, 2, 3, 4, 5, // dst
+        6, 7, 8, 9, 10, 11, // src
+        0x08, 0x00, // IPv4
     ];
     v.extend_from_slice(&eth);
     let ip_header_len = 20u16;
     let udp_len = 8 + upayload.len() as u16;
     let total_len = ip_header_len + udp_len;
     let ipv4 = [
-        0x45, 0x00, // ver/ihl, tos
-        (total_len>>8) as u8, (total_len&0xff) as u8,
-        0,1, 0,0, // id, flags/frag
-        64, 17, // ttl, proto=UDP
-        0,0, // checksum (zero)
-        192,168,0,1,
-        192,168,0,2,
+        0x45,
+        0x00, // ver/ihl, tos
+        (total_len >> 8) as u8,
+        (total_len & 0xff) as u8,
+        0,
+        1,
+        0,
+        0, // id, flags/frag
+        64,
+        17, // ttl, proto=UDP
+        0,
+        0, // checksum (zero)
+        192,
+        168,
+        0,
+        1,
+        192,
+        168,
+        0,
+        2,
     ];
     v.extend_from_slice(&ipv4);
-    v.extend_from_slice(&[(sport>>8) as u8,(sport&0xff) as u8, (dport>>8) as u8,(dport&0xff) as u8]);
-    v.extend_from_slice(&[(udp_len>>8) as u8,(udp_len&0xff) as u8, 0,0]);
+    v.extend_from_slice(&[
+        (sport >> 8) as u8,
+        (sport & 0xff) as u8,
+        (dport >> 8) as u8,
+        (dport & 0xff) as u8,
+    ]);
+    v.extend_from_slice(&[(udp_len >> 8) as u8, (udp_len & 0xff) as u8, 0, 0]);
     v.extend_from_slice(upayload);
     v
 }
 
 fn eth_ipv4_tcp(sport: u16, dport: u16, tpayload: &[u8]) -> Vec<u8> {
     let mut v = Vec::new();
-    let eth = [0,1,2,3,4,5, 6,7,8,9,10,11, 0x08,0x00];
+    let eth = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 0x08, 0x00];
     v.extend_from_slice(&eth);
     let ip_len = 20u16;
     let tcp_hdr_len = 34u16; // our struct size
     let total_len = ip_len + tcp_hdr_len + tpayload.len() as u16;
     let ipv4 = [
-        0x45,0x00,
-        (total_len>>8) as u8,(total_len&0xff) as u8,
-        0,2, 0,0,
-        64, 6, // TCP
-        0,0,
-        192,168,0,1,
-        192,168,0,2,
+        0x45,
+        0x00,
+        (total_len >> 8) as u8,
+        (total_len & 0xff) as u8,
+        0,
+        2,
+        0,
+        0,
+        64,
+        6, // TCP
+        0,
+        0,
+        192,
+        168,
+        0,
+        1,
+        192,
+        168,
+        0,
+        2,
     ];
     v.extend_from_slice(&ipv4);
     // TCP header (34 bytes per project)
-    let mut tcp = vec![0u8;34];
-    tcp[0]=(sport>>8) as u8; tcp[1]=(sport&0xff) as u8;
-    tcp[2]=(dport>>8) as u8; tcp[3]=(dport&0xff) as u8;
-    tcp[12]=0x50; // data offset nibble in first byte of this 4-byte field
-    tcp[33]=0x02; // SYN in last byte of control_flag array
+    let mut tcp = vec![0u8; 34];
+    tcp[0] = (sport >> 8) as u8;
+    tcp[1] = (sport & 0xff) as u8;
+    tcp[2] = (dport >> 8) as u8;
+    tcp[3] = (dport & 0xff) as u8;
+    tcp[12] = 0x50; // data offset nibble in first byte of this 4-byte field
+    tcp[33] = 0x02; // SYN in last byte of control_flag array
     v.extend_from_slice(&tcp);
     v.extend_from_slice(tpayload);
     v
@@ -90,12 +123,12 @@ fn main() -> std::io::Result<()> {
     emit_pkt(&mut f, &pkt)?;
 
     // RTP (UDP) port 40002
-    let rtp = vec![0x80, 96, 0x12, 0x34, 0,0,0,1, 0,0,0,1];
+    let rtp = vec![0x80, 96, 0x12, 0x34, 0, 0, 0, 1, 0, 0, 0, 1];
     let pkt = eth_ipv4_udp(40000, 40002, &rtp);
     emit_pkt(&mut f, &pkt)?;
 
     // RTCP (SR) PT=200
-    let rtcp = vec![0x80, 200, 0x00, 0x06, 0,0,0,1];
+    let rtcp = vec![0x80, 200, 0x00, 0x06, 0, 0, 0, 1];
     let pkt = eth_ipv4_udp(40000, 40003, &rtcp);
     emit_pkt(&mut f, &pkt)?;
 
