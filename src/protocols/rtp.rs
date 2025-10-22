@@ -1,5 +1,7 @@
 // RTP minimal decoder (RFC 3550)
-#[derive(Clone, Copy)]
+use crate::utils::cow_struct;
+
+#[derive(Default, Clone, Copy)]
 #[repr(C, packed)]
 pub struct Header {
     pub v_p_x_cc: u8,
@@ -28,14 +30,18 @@ pub fn decode(data: &[u8]) {
         println!("RTP (truncated) {}B", data.len());
         return;
     }
-    let h = unsafe { &*(data.as_ptr() as *const Header) };
-    let pt = h.m_pt & 0x7F;
-    println!(
-        "RTP v={} pt={} seq={} ts={} ssrc=0x{:08x}",
-        (h.v_p_x_cc >> 6) & 3,
-        pt,
-        u16::from_be(h.seq),
-        u32::from_be(h.timestamp),
-        u32::from_be(h.ssrc)
-    );
+    let (hdr, _) = data.split_at(Header::SIZE);
+    if let Some(h) = cow_struct::<Header>(hdr) {
+        let pt = h.m_pt & 0x7F;
+        println!(
+            "RTP v={} pt={} seq={} ts={} ssrc=0x{:08x}",
+            (h.v_p_x_cc >> 6) & 3,
+            pt,
+            u16::from_be(h.seq),
+            u32::from_be(h.timestamp),
+            u32::from_be(h.ssrc)
+        );
+    } else {
+        println!("RTP (truncated) {}B", data.len());
+    }
 }

@@ -10,18 +10,25 @@ pub fn bytes_of_mut<T: 'static + Copy>(elem: &mut T) -> &mut [u8] {
 }
 
 /// Returns either a borrowed version of the struct if target bytes are well aligned
-/// and backups on an owned version that involves copying the bytes.
+/// (zero-copy, avoiding unsafe on the decode path via slice::align_to),
+/// and falls back to an owned version that involves copying the bytes.
 ///
 /// Returns None in case the number of bytes doesn't match the struct size.
 #[inline]
 pub fn cow_struct<T: 'static + Copy + Default>(bytes: &[u8]) -> Option<Cow<'_, T>> {
     if bytes.len() != mem::size_of::<T>() {
-        None
-    } else if (bytes.as_ptr() as usize) % mem::align_of::<T>() != 0 {
-        let mut elem = T::default();
-        bytes_of_mut(&mut elem).copy_from_slice(bytes);
-        Some(Cow::Owned(elem))
-    } else {
-        Some(Cow::Borrowed(unsafe { &*(bytes.as_ptr() as *const T) }))
+        return None;
     }
+
+    // Zero-copy path when the input is properly aligned for T.
+    // align_to is unsafe to call; we immediately validate perfect alignment and element count.
+    let (head, body, tail) = unsafe { bytes.align_to::<T>() };
+    if head.is_empty() && tail.is_empty() && body.len() == 1 {
+        return Some(Cow::Borrowed(&body[0]));
+    }
+
+    // Fallback: copy into an owned T when alignment doesn't permit zero-copy.
+    let mut elem = T::default();
+    bytes_of_mut(&mut elem).copy_from_slice(bytes);
+    Some(Cow::Owned(elem))
 }
