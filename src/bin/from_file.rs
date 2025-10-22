@@ -161,6 +161,7 @@ fn main() {
                     187 | 201 => eagleeyes::protocols::bluetooth::decode(packet.data),
                     189 | 220 => eagleeyes::protocols::usb::decode(packet.data),
                     212 => eagleeyes::protocols::lin::decode(packet.data),
+                    9 | 16 => eagleeyes::protocols::ppp::decode(packet.data),
                     _ => ethernet::decode(packet.data),
                 }
             }

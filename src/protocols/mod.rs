@@ -45,6 +45,7 @@ pub mod ntp;
 pub mod null;
 pub mod ospf;
 pub mod pop3;
+pub mod ppp;
 pub mod pppoe;
 pub mod quic;
 pub mod rdp;
