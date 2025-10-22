@@ -24,6 +24,7 @@ fn decode_by_datalink(dlt: i32, data: &[u8]) {
         187 | 201 => eagleeyes::protocols::bluetooth::decode(data), // BT HCI H4 (with/without phdr)
         189 | 220 => eagleeyes::protocols::usb::decode(data), // USB Linux
         212 => eagleeyes::protocols::lin::decode(data), // LIN (if supported)
+        9 | 16 => eagleeyes::protocols::ppp::decode(data), // PPP / PPP_BSDOS
         _ => ethernet::decode(data),
     }
 }

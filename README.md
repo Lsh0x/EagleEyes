@@ -13,6 +13,7 @@ Layer 2 / 2.5
 - LLDP (minimal TLVs)
 - CDP (minimal TLVs)
 - PPP over Ethernet (PPPoE Discovery/Session; IPv4/IPv6 dispatch)
+- PPP (LCP/IPCP/IPv6CP; IPv4/IPv6 dispatch)
 - MPLS (shim stack; IPv4/IPv6 payload dispatch)
 - HDLC (minimal)
 - Frame Relay (minimal)
