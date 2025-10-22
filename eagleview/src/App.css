@@ -33,8 +33,10 @@
   grid-template-rows: auto auto 1fr;
   gap: 12px;
   padding: 16px;
-  margin-left: 360px; /* leave space for always-on left panel */
+  transition: margin-left 160ms ease;
 }
+.content.with-sidebar { margin-left: 320px; }
+.content.with-rail { margin-left: 48px; }
 .dropzone {
   border: 1px dashed #2d3643;
   border-radius: 8px;
@@ -161,21 +163,50 @@
 .stream-dir { color:#9fb1c1; margin-bottom:4px; }
 .stream-hex { background:#0b0f14; color:#cbd5e1; padding:8px; border-radius:6px; overflow:auto; }
 
-/* Side panel (left, always visible) */
+/* Side rail (collapsed by default, shows only icon) */
 .side-panel {
   position: fixed;
   top: 56px;
   left: 0;
-  width: 340px;
+  width: 48px;
   height: calc(100vh - 56px);
   background: #0d1117;
   border-right: 1px solid #1f2630;
+  z-index: 30;
+  transition: width 160ms ease;
+  overflow: hidden;
+}
+.side-panel.open {
+  width: 320px;
   padding: 12px;
   overflow: auto;
-  z-index: 30;
 }
 
-/* Tabs inside panel */
-.side-tabs { display:flex; gap:8px; margin-bottom:8px; }
-.side-tabbtn { background:#0f141a; color:#e6edf3; border:1px solid #2d3643; border-radius:6px; padding:6px 10px; cursor:pointer; }
-.side-tabbtn.active { background:#1f6feb; border-color:#1f6feb; color:#fff; }
+/* Toggle button (icon only when collapsed) */
+.side-toggle {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background: #1f6feb;
+  border: none;
+  color: white;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.side-toggle:hover { filter: brightness(1.1); }
+
+/* Content is hidden when rail is collapsed */
+.side-content {
+  opacity: 0;
+  transition: opacity 160ms ease;
+  margin-top: 48px;
+}
+.side-panel.open .side-content {
+  opacity: 1;
+}
