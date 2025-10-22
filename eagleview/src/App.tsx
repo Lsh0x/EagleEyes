@@ -234,7 +234,7 @@ function App() {
 
   // Stats for side panel (based on current filtered rows)
   const stats = useMemo(() => {
-    const arr = filtered
+    const arr = packets
     const totalPackets = arr.length
     const totalBytes = arr.reduce((a, p) => a + (p.capturedLen || 0), 0)
     const times = arr.map(p => p.ts || 0).filter(Boolean)
@@ -290,7 +290,7 @@ function App() {
     const uniquePeers = byPeer.size
     const focus = ipFocus ? { inCount: focusIn, outCount: focusOut, inBytes: focusInBytes, outBytes: focusOutBytes } : null
     return { totalPackets, totalBytes, first, last, duration, pps, bps, uniquePeers, protoList, topPeers, topTCP, topUDP, focus }
-  }, [filtered, ipFocus])
+  }, [packets])
 
   const [streamKey, setStreamKey] = useState<string | null>(null)
   const streamPackets = useMemo(() => {
@@ -803,7 +803,7 @@ function App() {
         </div>
       )}
       {/* Left side panel with tabs */}
-      <LeftPanel open={true} onClose={() => {}} tab={panelTab} setTab={setPanelTab} stats={stats as any} packet={selectedPacket} onProtoClick={(pr)=>toggleProto(pr)} onPortClick={(port: number)=> setFilter((prev)=> (prev? prev+ ' ' : '') + `port:${port}`)} />
+      <LeftPanel open={true} onClose={() => {}} tab={panelTab} setTab={setPanelTab} stats={stats as any} packet={selectedPacket} packetList={packets} selectedIndex={selectedIndex} onSelectIndex={(idx)=> setSelectedIndex(idx)} onProtoClick={(pr)=>toggleProto(pr)} onPortClick={(port: number)=> setFilter((prev)=> (prev? prev+ ' ' : '') + `port:${port}`)} />
     </div>
   )
 }
