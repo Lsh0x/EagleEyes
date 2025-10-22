@@ -49,7 +49,6 @@ function App() {
   const [txnGrouped, setTxnGrouped] = useState<boolean>(false)
   const [txnFocus, setTxnFocus] = useState<string | null>(null)
   const [expandedTxns, setExpandedTxns] = useState<Set<string>>(new Set())
-  const [showPanel, setShowPanel] = useState<boolean>(false)
   const [panelTab, setPanelTab] = useState<'packet'|'stats'>('packet')
 
   const availableProtos = useMemo(() => {
@@ -446,7 +445,6 @@ function App() {
       <header className="topbar">
         <div className="brand">EagleView</div>
         <div className="actions" style={{display:'flex', gap:8}}>
-          <button className="btn" onClick={() => setShowPanel(v=>!v)}>{showPanel? 'Hide panel' : 'Show panel'}</button>
           <label className="btn" htmlFor="file-input">
             + Open PCAP/PCAPNG
           </label>
@@ -777,8 +775,7 @@ function App() {
         </div>
       )}
       {/* Left side panel with tabs */}
-      <LeftPanel open={showPanel} onClose={() => setShowPanel(false)} tab={panelTab} setTab={setPanelTab} stats={stats as any} packet={selectedPacket} />
-      <button className={"side-tab " + (showPanel ? 'active' : '')} onClick={() => setShowPanel(v=>!v)} title="Panel">▸</button>
+      <LeftPanel open={true} onClose={() => {}} tab={panelTab} setTab={setPanelTab} stats={stats as any} packet={selectedPacket} />
     </div>
   )
 }
