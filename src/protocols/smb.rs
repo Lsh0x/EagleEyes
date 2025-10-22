@@ -1,12 +1,18 @@
-// SMB minimal signature check
+// SMB decoder: differentiate SMB1 and SMB2/3 and show command
 pub fn decode(data: &[u8]) {
     if data.len() >= 4 {
         if &data[0..4] == b"\xffSMB" {
-            println!("SMB1");
+            let cmd = data.get(4).copied().unwrap_or(0);
+            println!("SMB1 cmd=0x{:02x}", cmd);
             return;
         }
-        if data.len() >= 4 && data[0] == 0xfe && &data[1..4] == b"SMB" {
-            println!("SMB2/3");
+        if data[0] == 0xfe && &data[1..4] == b"SMB" {
+            if data.len() >= 16 {
+                let cmd = u16::from_le_bytes([data[12], data[13]]);
+                println!("SMB2/3 cmd=0x{:04x}", cmd);
+            } else {
+                println!("SMB2/3");
+            }
             return;
         }
     }

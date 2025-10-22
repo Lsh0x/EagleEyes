@@ -21,9 +21,17 @@ pub fn display(h: &Header) -> String {
     let li = (h.flags & 0b1100_0000) >> 6;
     let vn = (h.flags & 0b0011_1000) >> 3;
     let mode = h.flags & 0b0000_0111;
+    let mode_name = match mode {
+        1 => "symmetric active",
+        2 => "symmetric passive",
+        3 => "client",
+        4 => "server",
+        5 => "broadcast",
+        _ => "other",
+    };
     format!(
-        "[NTP] LI={} VN={} MODE={} stratum={}",
-        li, vn, mode, h.stratum
+        "[NTP] LI={} VN={} MODE={}({}) stratum={}",
+        li, vn, mode, mode_name, h.stratum
     )
 }
 
