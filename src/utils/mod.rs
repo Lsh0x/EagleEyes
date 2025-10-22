@@ -14,7 +14,7 @@ pub fn bytes_of_mut<T: 'static + Copy>(elem: &mut T) -> &mut [u8] {
 ///
 /// Returns None in case the number of bytes doesn't match the struct size.
 #[inline]
-pub fn cow_struct<T: 'static + Copy + Default>(bytes: &[u8]) -> Option<Cow<T>> {
+pub fn cow_struct<T: 'static + Copy + Default>(bytes: &[u8]) -> Option<Cow<'_, T>> {
     if bytes.len() != mem::size_of::<T>() {
         None
     } else if (bytes.as_ptr() as usize) % mem::align_of::<T>() != 0 {

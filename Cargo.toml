@@ -2,7 +2,7 @@
 name = "eagle_eyes"
 version = "0.1.0"
 authors = ["lsh", "atom"]
-edition = "2018"
+edition = "2021"
 
 [[bin]]
 name = "capture"
@@ -11,6 +11,18 @@ path = "src/bin/capture.rs"
 [[bin]]
 name = "from_file"
 path = "src/bin/from_file.rs"
+
+[[bin]]
+name = "list"
+path = "src/bin/list.rs"
+
+[[bin]]
+name = "gen_sample"
+path = "src/bin/gen_sample.rs"
+
+[[bin]]
+name = "dump"
+path = "src/bin/dump.rs"
 
 [lib]
 name = "eagleeyes"

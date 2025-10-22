@@ -4,6 +4,19 @@
 
 EagleEyes aims to decode net traffic and analyse it using pcap to ensure security purposes.
 
+### Supported protocols (decoder coverage)
+- Ethernet II (Ethertype)
+- IEEE 802.3 + LLC/SNAP
+- ARP
+- VLAN 802.1Q (single-tag)
+- STP (Spanning Tree, minimal BPDU)
+- LLDP (minimal TLVs)
+- CDP (minimal TLVs)
+- PPP over Ethernet (PPPoE Discovery/Session; IPv4/IPv6 dispatch)
+- MPLS (shim stack; IPv4/IPv6 payload dispatch)
+- HDLC (minimal)
+- Frame Relay (minimal)
+
 ## Quick start
 
 ```sh

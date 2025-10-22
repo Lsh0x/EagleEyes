@@ -72,6 +72,26 @@ export function decodePacket(p: ParsedPacket): Decoded {
     const summary = op === 1 ? `ARP Who has ${tpa}? Tell ${spa}` : op === 2 ? `ARP Reply ${spa} is-at ${macToStr(u.subarray(off + 8, off + 14))}` : 'ARP'
     return finalize(summary, { l2, l3: { proto: 'ARP', src: spa, dst: tpa }, tag: 'ARP', meta: { arp: { op, spa, tpa } } })
   }
+  if (etherType === 0x88cc) { // LLDP
+    return finalize('LLDP', { l2, tag: 'LLDP' })
+  }
+  if (etherType === 0x8847 || etherType === 0x8848) { // MPLS
+    return finalize('MPLS', { l2, tag: 'MPLS' })
+  }
+  if (etherType === 0x8863 || etherType === 0x8864) { // PPPoE
+    return finalize(etherType === 0x8863 ? 'PPPoE Discovery' : 'PPPoE Session', { l2, tag: 'PPPoE' })
+  }
+  if (etherType <= 1500) { // IEEE 802.3 LLC/SNAP
+    const dsap = u[off]; const ssap = u[off+1]; const ctrl = u[off+2]
+    if (dsap === 0xaa && ssap === 0xaa && ctrl === 0x03 && u.length >= off + 8) {
+      const oui = (u[off+3] << 16) | (u[off+4] << 8) | u[off+5]
+      const pid = (u[off+6] << 8) | u[off+7]
+      if (oui === 0x00000c && pid === 0x2000) return finalize('CDP', { l2, tag: 'CDP' })
+      return finalize('SNAP', { l2, tag: 'LLC' })
+    }
+    if (dsap === 0x42 && ssap === 0x42) return finalize('STP BPDU', { l2, tag: 'STP' })
+    return finalize('802.3 LLC', { l2, tag: 'LLC' })
+  }
 
   return finalize(etherType ? `Ethertype 0x${etherType.toString(16)}` : 'Frame', { l2, tag: 'ETH' })
 

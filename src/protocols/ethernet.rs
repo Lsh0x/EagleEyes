@@ -38,6 +38,11 @@ impl PROTO {
     pub const VLAN: u16 = 0x8100;
     pub const IPX: u16 = 0x8137;
     pub const IPV6: u16 = 0x86dd;
+    pub const LLDP: u16 = 0x88cc;
+    pub const MPLS_U: u16 = 0x8847; // MPLS Unicast
+    pub const MPLS_M: u16 = 0x8848; // MPLS Multicast
+    pub const PPPOE_DISC: u16 = 0x8863;
+    pub const PPPOE_SESS: u16 = 0x8864;
     pub const LOOPBACK: u16 = 0x9000;
 }
 
@@ -63,6 +68,11 @@ pub fn ether_type_as_str(ether_type: u16) -> &'static str {
         PROTO::VLAN => "VLAN",
         PROTO::IPX => "IPX",
         PROTO::IPV6 => "IPV6",
+        PROTO::LLDP => "LLDP",
+        PROTO::MPLS_U => "MPLS_U",
+        PROTO::MPLS_M => "MPLS_M",
+        PROTO::PPPOE_DISC => "PPPoE-Discovery",
+        PROTO::PPPOE_SESS => "PPPoE-Session",
         PROTO::LOOPBACK => "LOOPBACK",
         _ => "UNKNOW",
     }
@@ -92,11 +102,18 @@ pub fn decode(data: &[u8]) {
             Some(header) => {
                 let t = header.ether_type.to_be();
                 println!("{}", display(&header));
+                // IEEE 802.3: if value <= 1500, it's a length field and an LLC header follows
+                if t <= 1500 {
+                    return super::llc::decode(next_data);
+                }
                 match t {
                     PROTO::ARP => arp::decode(next_data),
                     PROTO::IPV4 => ipv4::decode(next_data),
                     PROTO::IPV6 => ipv6::decode(next_data),
                     PROTO::VLAN => super::vlan::decode(next_data),
+                    PROTO::LLDP => super::lldp::decode(next_data),
+                    PROTO::MPLS_U | PROTO::MPLS_M => super::mpls::decode(next_data),
+                    PROTO::PPPOE_DISC | PROTO::PPPOE_SESS => super::pppoe::decode(t, next_data),
                     _ => println!("ether type: {:?}", ether_type_as_str(t)),
                 }
             }
