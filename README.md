@@ -4,6 +4,40 @@
 
 EagleEyes aims to decode net traffic and analyse it using pcap to ensure security purposes.
 
+### Browser (WASM) integration for EagleView (React)
+EagleView (the React dashboard) now uses the Rust decoders compiled to WebAssembly via a new crate `crates/protocol-wasm`. Capture and native tools remain in the Rust binaries; the browser only decodes bytes.
+
+- Build the WASM package
+```sh path=null start=null
+cargo install wasm-pack
+wasm-pack build crates/protocol-wasm --target bundler --release
+```
+
+- Install into the dashboard and enable WASM in Vite
+```sh path=null start=null
+npm --prefix eagleview i ./crates/protocol-wasm/pkg
+npm --prefix eagleview i -D vite-plugin-wasm
+```
+Update Vite config to load `.wasm`:
+```ts path=null start=null
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import wasm from 'vite-plugin-wasm'
+export default defineConfig({ plugins: [react(), wasm()] })
+```
+
+- Use from React (Uint8Array in, JSON out)
+```ts path=null start=null
+import { decode_packet } from 'protocol-wasm'
+// Given a ParsedPacket with .data: Uint8Array
+const dec = decode_packet(pkt.data)
+// dec: { l2?, l3?, l4?, summary, protocolTag, appTag? }
+```
+
+Notes
+- `pcap` is native-only and is automatically excluded from `wasm32` builds; native binaries (capture/from_file) are unchanged.
+- The dashboard still parses pcap/pcapng in JS; only per-packet decoding now comes from Rust.
+
 ### Supported protocols (decoder coverage)
 Layer 2 / 2.5
 - Ethernet II (Ethertype)
@@ -147,6 +181,11 @@ Alternatively, request an administrator to enable non-root BPF access (one-time 
 - For L3/L4: wire from `ipv4.rs`/`ipv6.rs`/`udp.rs`/`tcp.rs` based on protocol numbers or ports.
 - Update UI tags in `eagleview/src/lib/decoders.ts` if you want badges/summary.
 - Document in README under Supported protocols.
+
+### EagleView — Exchanges view (request–response pairing)
+- Open a pcap/pcapng in EagleView and click the “Exchanges” chip to see linked request–response pairs.
+- DNS pairs are matched by transaction ID within a flow; HTTP/1.x pairs are matched FIFO within a TCP flow by detecting request/response start lines; unknown TCP payloads are paired heuristically as alternating bursts (marked low-confidence).
+- Each exchange shows flow endpoints, request/response summaries, timestamps, and RTT. Use the Req/Resp buttons to jump to the underlying packets.
 
 Please read the following [guideline](doc/guideline.md).
 

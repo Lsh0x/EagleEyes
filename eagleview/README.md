@@ -42,6 +42,20 @@ The tagger recognizes common protocols by header/port/heuristics (e.g., QUIC, RT
 - Turn on Transaction grouping to bucket DNS IDs and TCP handshakes
 - Use Stream view to preview application payload slices for a selected flow
 
+## Large captures and limits
+EagleView runs entirely in the browser. To avoid crashes on low-memory devices:
+- Files larger than ~250 MB are rejected.
+- Files larger than ~50 MB load only the first 50 MB.
+- When packet count is extremely high, only the first 100,000 rows are retained in memory for responsiveness.
+
+If you need to analyze a huge capture, consider trimming before loading:
+- By time window (editcap): `editcap -A 2025-01-01 00:00:00 -B 2025-01-01 00:10:00 big.pcap out.pcap`
+- By packet count (editcap): `editcap -c 100000 big.pcap out.pcap`
+- By filter (tcpdump): `tcpdump -r big.pcap '(host 1.2.3.4 and port 443)' -w out.pcap`
+- By display filter (tshark): `tshark -r big.pcap -Y 'ip.addr==1.2.3.4 && tcp.port==443' -w out.pcap`
+
+These keep the UI stable while still letting you inspect relevant traffic.
+
 ## Related
 - Core Rust decoders live in `../src/protocols/*` (CLI utilities).
 - High-level protocol list: `../README.md` and `../docs/PROTOCOLS.md`.

@@ -4,6 +4,13 @@ import './App.css'
 import { parseCapture } from './lib/parsers'
 import { decodePacket, extractL4Payload } from './lib/decoders'
 import LeftPanel from './components/LeftPanel'
+import type { Exchange } from './lib/matchers'
+import { buildExchanges, groupExchangesByFlow } from './lib/matchers'
+
+// Safety limits to avoid browser crashes with very large captures
+const HARD_LIMIT_BYTES = 250 * 1024 * 1024; // 250 MB: above this, refuse to load
+const SOFT_LIMIT_BYTES = 50 * 1024 * 1024;  // 50 MB: above this, load only the first chunk
+const MAX_PACKET_ROWS = 100_000;            // cap number of rows held in memory
 
 export type PacketRow = {
   index: number
@@ -16,6 +23,7 @@ export type PacketRow = {
   srcPort?: number
   dstPort?: number
   proto?: string
+  app?: string
   info?: string
   flowKey?: string
   txnKey?: string
@@ -35,6 +43,7 @@ function App() {
   const [fileName, setFileName] = useState<string | null>(null)
   const parsedRef = useRef<import('./lib/parsers').ParsedCapture | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
   const [packets, setPackets] = useState<PacketRow[]>([])
   const [filter, setFilter] = useState('')
   const [selectedProtos, setSelectedProtos] = useState<Set<string>>(new Set())
@@ -50,6 +59,25 @@ function App() {
   const [txnFocus, setTxnFocus] = useState<string | null>(null)
   const [expandedTxns, setExpandedTxns] = useState<Set<string>>(new Set())
   const [panelTab, setPanelTab] = useState<'packet'|'stats'>('packet')
+  const [showExchanges, setShowExchanges] = useState<boolean>(false)
+  const [collapsePairs, setCollapsePairs] = useState<boolean>(false)
+  const [sidePinned, setSidePinned] = useState<boolean>(false)
+  const exchanges = useMemo<Exchange[]>(() => buildExchanges(packets, parsedRef.current), [packets])
+  const exByPacket = useMemo<Map<number, Exchange>>(() => {
+    const m = new Map<number, Exchange>()
+    for (const ex of exchanges) {
+      for (const id of ex.request?.packetIds || []) m.set(id, ex)
+      for (const id of ex.response?.packetIds || []) m.set(id, ex)
+    }
+    return m
+  }, [exchanges])
+  const rowByIndex = useMemo<Map<number, PacketRow>>(()=> {
+    const m = new Map<number, PacketRow>()
+    for (const r of packets) m.set(r.index, r)
+    return m
+  }, [packets])
+  const [exGrouped, setExGrouped] = useState<boolean>(true)
+  const exGroups = useMemo(()=> exGrouped ? groupExchangesByFlow(exchanges) : [], [exchanges, exGrouped])
 
   const availableProtos = useMemo(() => {
     const set = new Set<string>()
@@ -72,18 +100,57 @@ function App() {
 
   const clearProtos = () => setSelectedProtos(new Set())
 
+  const resetAll = () => {
+    setFilter('')
+    setSelectedProtos(new Set())
+    setSelectedIndex(null)
+    setFlowKey(null)
+    setIpFocus(null)
+    setPeerFocus(null)
+    setViewMode('list')
+    setTxnGrouped(false)
+    setTxnFocus(null)
+    setExpandedPeers(new Set())
+    setExpandedTxns(new Set())
+    setShowExchanges(false)
+    setCollapsePairs(false)
+    setSortBy('time')
+  }
+
   const onFiles = useCallback(async (files: FileList | null) => {
     setError(null)
+    setNotice(null)
     setPackets([])
     if (!files || files.length === 0) return
     const f = files[0]
     setFileName(f.name)
     try {
-      const buf = await f.arrayBuffer()
+      // Enforce hard size limit
+      if (f.size > HARD_LIMIT_BYTES) {
+        setError(`File is too large for in-browser parsing (${bytesToHuman(f.size)} > ${bytesToHuman(HARD_LIMIT_BYTES)}). Please trim or filter the capture (e.g., by time, hosts, or ports) and try again.`)
+        return
+      }
+      // Load fully or only the first chunk depending on size
+      const readEnd = f.size > SOFT_LIMIT_BYTES ? SOFT_LIMIT_BYTES : f.size
+      const buf = await f.slice(0, readEnd).arrayBuffer()
       const parsed = parseCapture(buf)
       parsedRef.current = parsed
+
+      // Prepare notice messages
+      const notices: string[] = []
+      if (readEnd < f.size) {
+        notices.push(`Loaded only the first ${bytesToHuman(readEnd)} of ${bytesToHuman(f.size)} (large file).`)
+      }
+
+      const rows = parsed.packets.length > MAX_PACKET_ROWS ? parsed.packets.slice(0, MAX_PACKET_ROWS) : parsed.packets
+      if (parsed.packets.length > MAX_PACKET_ROWS) {
+        notices.push(`Showing the first ${MAX_PACKET_ROWS.toLocaleString()} packets out of ${parsed.packets.length.toLocaleString()}.`)
+      }
+
+      if (notices.length) setNotice(notices.join(' '))
+
       setPackets(
-        parsed.packets.map((p, i) => {
+        rows.map((p, i) => {
           const dec = decodePacket(p)
           const src = dec.l3?.src ?? dec.l2?.srcMac
           const dst = dec.l3?.dst ?? dec.l2?.dstMac
@@ -104,6 +171,7 @@ function App() {
             dstPort,
             proto,
             info: dec.summary,
+            app: dec.appTag,
             flowKey,
             txnKey,
             txnRole,
@@ -124,7 +192,7 @@ function App() {
       arr = arr.filter((p) => p.flowKey === flowKey)
     }
     if (txnFocus) {
-      arr = arr.filter((p) => p.txnKey === txnFocus)
+      arr = arr.filter((p) => (exByPacket.get(p.index)?.id === txnFocus))
     }
     if (ipFocus) {
       if (ipFocusRole === 'src') arr = arr.filter((p) => p.src === ipFocus)
@@ -137,7 +205,7 @@ function App() {
       }
     }
     if (selectedProtos.size > 0) {
-      arr = arr.filter((p) => selectedProtos.has((p.proto || '').toUpperCase()))
+      arr = arr.filter((p) => selectedProtos.has((p.proto || '').toUpperCase()) || selectedProtos.has((p.app || '').toUpperCase()))
     }
     if (filter.trim()) {
       const tokens = filter.trim().split(/\s+/)
@@ -203,34 +271,43 @@ function App() {
 
   const txnGroups = useMemo(() => {
     if (!txnGrouped) return [] as { key: string; proto: string; label: string; req: number; resp: number; other: number; first: number; last: number }[]
-    let arr = packets
-    if (flowKey) arr = arr.filter((p) => p.flowKey === flowKey)
+    // Build from exchanges so it works for DNS/ARP/HTTP/TCP
+    let exList = exchanges
+    if (flowKey) exList = exList.filter(ex => ex.flowId === flowKey)
     if (ipFocus) {
-      if (ipFocusRole === 'src') arr = arr.filter((p) => p.src === ipFocus)
-      else if (ipFocusRole === 'dst') arr = arr.filter((p) => p.dst === ipFocus)
-      else arr = arr.filter((p) => p.src === ipFocus || p.dst === ipFocus)
+      exList = exList.filter(ex => {
+        const a = ex.flow?.a || ''
+        const b = ex.flow?.b || ''
+        if (ipFocusRole === 'src') return a.startsWith(ipFocus + ':')
+        if (ipFocusRole === 'dst') return b.startsWith(ipFocus + ':')
+        return a.startsWith(ipFocus + ':') || b.startsWith(ipFocus + ':')
+      })
     }
-    if (selectedProtos.size > 0) arr = arr.filter((p) => selectedProtos.has((p.proto || '').toUpperCase()))
+    if (selectedProtos.size > 0) exList = exList.filter(ex => selectedProtos.has(ex.protocol.toUpperCase()))
     if (filter.trim()) {
       const tokens = filter.trim().split(/\s+/)
-      arr = arr.filter((p) => tokens.every((t) => matchToken(p, t)))
+      exList = exList.filter(ex => tokens.every(t => {
+        const v = t.toLowerCase()
+        return (
+          ex.id.toLowerCase().includes(v) ||
+          ex.protocol.toLowerCase().includes(v) ||
+          (ex.flow ? `${ex.flow.a} ${ex.flow.b}`.toLowerCase().includes(v) : false)
+        )
+      }))
     }
-    const map = new Map<string, { proto: string; req: number; resp: number; other: number; first: number; last: number }>()
-    for (const p of arr) {
-      if (!p.txnKey || !p.proto) continue
-      const g = map.get(p.txnKey) || { proto: p.proto, req: 0, resp: 0, other: 0, first: Number.POSITIVE_INFINITY, last: 0 }
-      if (p.txnRole === 'request' || p.txnRole === 'query' || p.txnRole === 'syn') g.req++
-      else if (p.txnRole === 'response' || p.txnRole === 'syn-ack' || p.txnRole === 'ack') g.resp++
-      else g.other++
-      g.first = Math.min(g.first, p.ts || Number.POSITIVE_INFINITY)
-      g.last = Math.max(g.last, p.ts || 0)
-      map.set(p.txnKey, g)
-    }
-    const out = Array.from(map.entries()).map(([key, v]) => ({ key, proto: v.proto, label: key, req: v.req, resp: v.resp, other: v.other, first: v.first, last: v.last }))
-    // Sort by time
+    const out = exList.map(ex => ({
+      key: ex.id,
+      proto: ex.protocol.toUpperCase(),
+      label: ex.id,
+      req: ex.request?.packetIds?.length || 0,
+      resp: ex.response?.packetIds?.length || 0,
+      other: 0,
+      first: ex.request?.startTime || ex.response?.startTime || 0,
+      last: ex.response?.endTime || ex.request?.endTime || 0,
+    }))
     out.sort((a, b) => (a.first || 0) - (b.first || 0))
     return out
-  }, [txnGrouped, packets, flowKey, ipFocus, ipFocusRole, selectedProtos, filter])
+  }, [txnGrouped, exchanges, flowKey, ipFocus, ipFocusRole, selectedProtos, filter])
 
   // Stats for side panel (based on current filtered rows)
   const stats = useMemo(() => {
@@ -468,6 +545,17 @@ function App() {
     return () => window.removeEventListener('keydown', onKey)
   }, [filtered, selectedIndex])
 
+  // ESC to close selection/transaction focus
+  useEffect(() => {
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSelectedIndex(null)
+      }
+    }
+    window.addEventListener('keydown', onEsc)
+    return () => window.removeEventListener('keydown', onEsc)
+  }, [])
+
   return (
     <div className="app-root">
       <header className="topbar">
@@ -486,7 +574,7 @@ function App() {
         </div>
       </header>
 
-      <main className="content">
+      <main className={`content ${sidePinned ? 'with-sidebar' : 'with-rail'}`}>
         <section
           className="dropzone"
           onDragOver={(e) => e.preventDefault()}
@@ -505,6 +593,7 @@ function App() {
             )}
           </p>
           {error && <p className="error">{error}</p>}
+          {notice && <p className="notice">{notice}</p>}
         </section>
 
         <section className="toolbar">
@@ -515,6 +604,7 @@ function App() {
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
             />
+            <button className="chip clear" onClick={resetAll} title="Clear all filters and views">Reset</button>
             <div className="stats">
               <span>{filtered.length} packets</span>
               {packets.length > 0 && (
@@ -564,6 +654,15 @@ function App() {
             )}
             <span className="hint">Group:</span>
             <button className={`chip ${txnGrouped?'active':''}`} onClick={() => setTxnGrouped(v=>!v)} title="Group protocol transactions">Transactions</button>
+            <button className={`chip ${showExchanges?'active':''}`} onClick={() => setShowExchanges(v=>!v)} title="Show request–response pairs">Exchanges</button>
+            <button className={`chip ${collapsePairs?'active':''}`} onClick={() => setCollapsePairs(v=>!v)} title="Collapse request–response pairs in list">Collapse pairs</button>
+            {showExchanges && (
+              <>
+                <span className="hint">View:</span>
+                <button className={`chip ${exGrouped?'active':''}`} onClick={()=> setExGrouped(true)}>By flow</button>
+                <button className={`chip ${!exGrouped?'active':''}`} onClick={()=> setExGrouped(false)}>Flat</button>
+              </>
+            )}
             {txnFocus && (
               <button className="chip active" onClick={() => setTxnFocus(null)} title="Clear transaction focus">Txn ×</button>
             )}
@@ -582,7 +681,73 @@ function App() {
           )}
         </section>
 
-        {txnGrouped ? (
+        {showExchanges ? (
+          exGrouped ? (
+            <section className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Flow</th>
+                    <th>Count</th>
+                    <th>First</th>
+                    <th>Last</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {exGroups.slice(0,500).map(g => (
+                    <tr key={g.flowId}>
+                      <td className="mono">{g.flow ? `${g.flow.a} ⇄ ${g.flow.b}` : g.flowId}</td>
+                      <td>{g.count}</td>
+                      <td>{g.first ? new Date(g.first*1000).toISOString().split('T')[1].replace('Z','') : '-'}</td>
+                      <td>{g.last ? new Date(g.last*1000).toISOString().split('T')[1].replace('Z','') : '-'}</td>
+                      <td>
+                        <button className="mini" onClick={()=> setFlowKey(`TCP|${g.flow?.a}|${g.flow?.b}`)} title="Follow flow">Follow</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {exGroups.length === 0 && <div className="empty">No exchanges detected</div>}
+            </section>
+          ) : (
+            <section className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Protocol</th>
+                    <th>Flow</th>
+                    <th>Request</th>
+                    <th>Response</th>
+                    <th>Start</th>
+                    <th>RTT</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {exchanges.slice(0,1000).map((ex) => (
+                    <tr key={ex.id}>
+                      <td><span className={'badge proto-' + ex.protocol}>{ex.protocol.toUpperCase()}</span></td>
+                      <td className="mono">{ex.flow ? `${ex.flow.a} ⇄ ${ex.flow.b}` : '-'}</td>
+                      <td className="mono">{formatReqSummary(ex)}</td>
+                      <td className="mono">{formatResSummary(ex)}</td>
+                      <td>{ex.request?.startTime ? new Date((ex.request.startTime)*1000).toISOString().split('T')[1].replace('Z','') : '-'}</td>
+                      <td>{ex.timing?.rttMs!=null ? `${ex.timing.rttMs.toFixed(1)} ms` : '-'}</td>
+                      <td>
+                        {ex.request?.packetIds?.[0] && (
+                          <button className="mini" title="Select request packet" onClick={()=> setSelectedIndex(ex.request!.packetIds[0])}>Req</button>
+                        )}
+                        {ex.response?.packetIds?.[0] && (
+                          <button className="mini" title="Select response packet" onClick={()=> setSelectedIndex(ex.response!.packetIds[0])}>Resp</button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {exchanges.length === 0 && <div className="empty">No exchanges detected</div>}
+            </section>
+        )) : txnGrouped ? (
           <section className="table-wrap">
             <table className="table">
               <thead>
@@ -626,15 +791,21 @@ function App() {
                               </tr>
                             </thead>
                             <tbody>
-                              {filtered.filter(p=>p.txnKey===g.key).slice(0,50).map(p=> (
-                                <tr key={p.index}>
-                                  <td>{p.index}</td>
-                                  <td>{p.ts ? new Date(p.ts * 1000).toISOString().split('T')[1].replace('Z','') : '-'}</td>
-                                  <td>{p.txnRole || '-'}</td>
-                                  <td>{p.capturedLen}</td>
-                                  <td className="mono">{p.info}</td>
-                                </tr>
-                              ))}
+                              {(exchanges.find(ex=> ex.id===g.key)?.request?.packetIds.concat(exchanges.find(ex=> ex.id===g.key)?.response?.packetIds || []) || [])
+                                .slice(0,50)
+                                .map((idx)=> {
+                                  const p = rowByIndex.get(idx)
+                                  if (!p) return null as any
+                                  return (
+                                    <tr key={p.index}>
+                                      <td>{p.index}</td>
+                                      <td>{p.ts ? new Date(p.ts * 1000).toISOString().split('T')[1].replace('Z','') : '-'}</td>
+                                      <td>{p.txnRole || '-'}</td>
+                                      <td>{p.capturedLen}</td>
+                                      <td className="mono">{p.info}</td>
+                                    </tr>
+                                  )
+                                })}
                             </tbody>
                           </table>
                         </div>
@@ -725,64 +896,157 @@ function App() {
             )}
           </section>
         ) : (
-          <section className="table-wrap">
-            <table className="table">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Time</th>
-                <th>Source</th>
-                <th>Destination</th>
-                <th>Protocol</th>
-                <th>Length</th>
-                <th>Info</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.slice(0, 5000).map((p) => (
-                <tr
-                  key={p.index}
-                  id={`row-${p.index}`}
-                  className={selectedIndex === p.index ? 'sel' : ''}
-                  onClick={() => setSelectedIndex(p.index)}
-                  onDoubleClick={() => p.flowKey && setFlowKey(p.flowKey!)}
-                >
-                  <td>{p.index}</td>
-                  <td>{p.ts ? new Date(p.ts * 1000).toISOString().split('T')[1].replace('Z','') : '-'}</td>
-                  <td>
-                    {p.src ? (
-                      <button className="link" onClick={(e) => { e.stopPropagation(); setIpFocus(p.src!); setIpFocusRole('src'); setViewMode('grouped'); setPeerFocus(null) }} title="Focus on this IP as Source">
-                        {p.src}
-                      </button>
-                    ) : '-'}
-                  </td>
-                  <td>
-                    {p.dst ? (
-                      <button className="link" onClick={(e) => { e.stopPropagation(); setIpFocus(p.dst!); setIpFocusRole('dst'); setViewMode('grouped'); setPeerFocus(null) }} title="Focus on this IP as Destination">
-                        {p.dst}
-                      </button>
-                    ) : '-'}
-                  </td>
-                  <td><span
-                    className={'badge clickable proto-' + ((p.proto||'').toLowerCase())}
-                    title={p.proto ? ('Filter proto:' + p.proto.toLowerCase()) : ''}
-                    onClick={() => p.proto && toggleProto(p.proto)}
-                  >{p.proto ?? '-'}</span></td>
-                  <td>{p.capturedLen}</td>
-                  <td className="mono">
-                    {p.info}
-                    {p.flowKey && (
-                      <button className="mini" onClick={(e) => { e.stopPropagation(); setFlowKey(p.flowKey!) }} title="Follow this flow">Follow</button>
-                    )}
-                  </td>
+          collapsePairs ? (
+            <section className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Protocol</th>
+                    <th>Flow</th>
+                    <th>Request</th>
+                    <th>Response</th>
+                    <th>Start</th>
+                    <th>RTT</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {exchanges.slice(0,1000).map((ex) => (
+                    <tr key={ex.id}>
+                      <td><span className={'badge proto-' + ex.protocol}>{ex.protocol.toUpperCase()}</span></td>
+                      <td className="mono">{ex.flow ? `${ex.flow.a} ⇄ ${ex.flow.b}` : '-'}</td>
+                      <td className="mono">{formatReqSummary(ex)}</td>
+                      <td className="mono">{formatResSummary(ex)}</td>
+                      <td>{ex.request?.startTime ? new Date((ex.request.startTime)*1000).toISOString().split('T')[1].replace('Z','') : '-'}</td>
+                      <td>{ex.timing?.rttMs!=null ? `${ex.timing.rttMs.toFixed(1)} ms` : '-'}</td>
+                      <td>
+                        {ex.request?.packetIds?.[0] && (
+                          <button className="mini" title="Select request packet" onClick={()=> setSelectedIndex(ex.request!.packetIds[0])}>Req</button>
+                        )}
+                        {ex.response?.packetIds?.[0] && (
+                          <button className="mini" title="Select response packet" onClick={()=> setSelectedIndex(ex.response!.packetIds[0])}>Resp</button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {exchanges.length === 0 && <div className="empty">No exchanges detected</div>}
+            </section>
+          ) : (
+            <section className="table-wrap">
+              <table className="table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Time</th>
+                  <th>Source</th>
+                  <th>Destination</th>
+                  <th>Protocol</th>
+                  <th>Length</th>
+                  <th>Info</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-          {filtered.length === 0 && (
-            <div className="empty">No packets to display</div>
-          )}
-        </section>
+              </thead>
+              <tbody>
+                {filtered.slice(0, 5000).flatMap((p) => ([
+                  (
+                    <tr
+                      key={p.index}
+                      id={`row-${p.index}`}
+                      className={selectedIndex === p.index ? 'sel' : ''}
+                      onClick={() => setSelectedIndex(prev => prev === p.index ? null : p.index)}
+                      onDoubleClick={() => {
+                        const ex = exByPacket.get(p.index)
+                        if (ex) setTxnFocus(ex.id)
+                        else if (p.flowKey) setFlowKey(p.flowKey!)
+                      }}
+                    >
+                      <td>{p.index}</td>
+                      <td>{p.ts ? new Date(p.ts * 1000).toISOString().split('T')[1].replace('Z','') : '-'}</td>
+                      <td>
+                        {p.src ? (
+                          <button className="link" onClick={(e) => { e.stopPropagation(); setIpFocus(p.src!); setIpFocusRole('src'); setViewMode('grouped'); setPeerFocus(null) }} title="Focus on this IP as Source">
+                            {p.src}
+                          </button>
+                        ) : '-'}
+                      </td>
+                      <td>
+                        {p.dst ? (
+                          <button className="link" onClick={(e) => { e.stopPropagation(); setIpFocus(p.dst!); setIpFocusRole('dst'); setViewMode('grouped'); setPeerFocus(null) }} title="Focus on this IP as Destination">
+                            {p.dst}
+                          </button>
+                        ) : '-'}
+                      </td>
+                      <td>
+                        <span
+                          className={'badge clickable proto-' + ((p.proto||'').toLowerCase())}
+                          title={p.proto ? ('Filter proto:' + p.proto.toLowerCase()) : ''}
+                          onClick={() => p.proto && toggleProto(p.proto)}
+                        >{p.proto ?? '-'}</span>
+                        {p.app && p.app.toUpperCase() !== (p.proto||'').toUpperCase() && (
+                          <span
+                            style={{marginLeft:6}}
+                            className={'badge clickable proto-' + p.app.toLowerCase()}
+                            title={'Filter proto:' + p.app.toLowerCase()}
+                            onClick={() => toggleProto(p.app!)}
+                          >{p.app}</span>
+                        )}
+                      </td>
+                      <td>{p.capturedLen}</td>
+                      <td className="mono">
+                        {p.info}
+                        <button className="mini" onClick={(e) => { e.stopPropagation(); setSelectedIndex(prev=> prev===p.index? null : p.index) }} title="Expand details">{selectedIndex===p.index?'Close':'Expand'}</button>
+                        {p.flowKey && (
+                          <button className="mini" onClick={(e) => { e.stopPropagation(); setFlowKey(p.flowKey!) }} title="Follow this flow">Follow</button>
+                        )}
+                      </td>
+                    </tr>
+                  ),
+                  selectedIndex === p.index ? (
+                    <tr key={`exp-${p.index}`} className="row-expansion">
+                      <td colSpan={7}>
+                        <div className="subtable">
+                          <div className="subtable-title" style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                            <span>Packet {p.index} details</span>
+                            <button className="mini" onClick={()=> setSelectedIndex(null)} title="Close">× Close</button>
+                          </div>
+                          <div className="details-grid">
+                            <div>
+                              <div className="details">
+                                <div className="details-title">Summary</div>
+                                <div className="mono" style={{whiteSpace:'pre-wrap'}}>{p.info}</div>
+                                {p.app && (<div style={{marginTop:6}}>App: <span className={'badge proto-' + p.app.toLowerCase()}>{p.app}</span></div>)}
+                              </div>
+                              <div className="details" style={{marginTop:8}}>
+                                <div className="details-title">Layers</div>
+                                <div>L2: {p.src && p.dst ? '' : 'Ethernet'} {p.src ? '' : ''}</div>
+                                <div>L3: {(p.proto||'').toUpperCase().startsWith('IP') ? p.proto : 'IP'} {p.src} → {p.dst}</div>
+                                <div>L4: {p.srcPort!=null || p.dstPort!=null ? `${p.srcPort??''} → ${p.dstPort??''}` : '-'}</div>
+                              </div>
+                            </div>
+                            <div>
+                              <div className="details">
+                                <div className="details-title">Hex (first 128B)</div>
+                                <pre className="hex">{(()=>{
+                                  const pkt = parsedRef.current?.packets[p.index-1]
+                                  if (!pkt) return 'N/A'
+                                  return hexPreview(pkt.data, 0, Math.min(128, pkt.data.length))
+                                })()}</pre>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : null,
+                ]) )}
+              </tbody>
+            </table>
+            {filtered.length === 0 && (
+              <div className="empty">No packets to display</div>
+            )}
+          </section>
+          )
         )}
       </main>
       {streamKey && (
@@ -802,10 +1066,49 @@ function App() {
           </div>
         </div>
       )}
-      {/* Left side panel with tabs */}
-      <LeftPanel open={true} onClose={() => {}} tab={panelTab} setTab={setPanelTab} stats={stats as any} packet={selectedPacket} packetList={packets} selectedIndex={selectedIndex} onSelectIndex={(idx)=> setSelectedIndex(idx)} onProtoClick={(pr)=>toggleProto(pr)} onPortClick={(port: number)=> setFilter((prev)=> (prev? prev+ ' ' : '') + `port:${port}`)} />
+      {/* Left side panel (icon toggles open/close) */}
+      <LeftPanel open={sidePinned} onClose={() => setSidePinned(v=>!v)} tab={panelTab} setTab={setPanelTab} stats={stats as any} packet={selectedPacket} packetList={packets} selectedIndex={selectedIndex} onSelectIndex={(idx)=> setSelectedIndex(idx)} onProtoClick={(pr)=>toggleProto(pr)} onPortClick={(port: number)=> setFilter((prev)=> (prev? prev+ ' ' : '') + `port:${port}`)} />
     </div>
   )
+}
+
+function formatReqSummary(ex: Exchange): string {
+  if (ex.protocol === 'arp') {
+    const s = ex.request?.summary
+    const spa = s?.spa, tpa = s?.tpa
+    return (spa && tpa) ? `who-has ${tpa} tell ${spa}` : 'who-has'
+  }
+  if (ex.protocol === 'dns') {
+    const id = ex.request?.summary?.id
+    return id!=null ? `id=${id}` : ''
+  }
+  if (ex.protocol === 'http1') {
+    const s = ex.request?.summary
+    return s ? `${s.method||''} ${s.path||''}`.trim() : ''
+  }
+  if (ex.protocol === 'tcp-unknown') {
+    return `${ex.request?.summary?.bytes||0}B`
+  }
+  return ''
+}
+function formatResSummary(ex: Exchange): string {
+  if (ex.protocol === 'arp') {
+    const s = ex.response?.summary
+    const spa = s?.spa, tpa = s?.tpa
+    return (spa && tpa) ? `${tpa} is-at ${spa}` : 'is-at'
+  }
+  if (ex.protocol === 'dns') {
+    const id = ex.response?.summary?.id
+    return id!=null ? `id=${id}` : ''
+  }
+  if (ex.protocol === 'http1') {
+    const s = ex.response?.summary
+    return s && s.status ? `${s.status}` : ''
+  }
+  if (ex.protocol === 'tcp-unknown') {
+    return `${ex.response?.summary?.bytes||0}B`
+  }
+  return ''
 }
 
 export default App
