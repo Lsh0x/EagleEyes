@@ -234,7 +234,7 @@ function App() {
 
   // Stats for side panel (based on current filtered rows)
   const stats = useMemo(() => {
-    const arr = filtered
+    const arr = packets
     const totalPackets = arr.length
     const totalBytes = arr.reduce((a, p) => a + (p.capturedLen || 0), 0)
     const times = arr.map(p => p.ts || 0).filter(Boolean)
@@ -245,6 +245,9 @@ function App() {
     const bps = duration && duration > 0 ? (totalBytes * 8) / duration : null
     const byProto = new Map<string, { count: number; bytes: number }>()
     const byPeer = new Map<string, { count: number; bytes: number }>()
+    const tcpPorts = new Map<number, { count: number; bytes: number }>()
+    const udpPorts = new Map<number, { count: number; bytes: number }>()
+    let focusIn = 0, focusOut = 0, focusInBytes = 0, focusOutBytes = 0
     for (const p of arr) {
       const pr = (p.proto || 'OTHER').toUpperCase()
       const ep = byProto.get(pr) || { count: 0, bytes: 0 }
@@ -258,11 +261,36 @@ function App() {
         e.bytes += p.capturedLen || 0
         byPeer.set(ip, e)
       }
+      if (p.proto?.toUpperCase() === 'TCP' && (p.srcPort != null || p.dstPort != null)) {
+        const ports = [p.srcPort, p.dstPort].filter((x)=>x!=null) as number[]
+        for (const port of ports) {
+          const e = tcpPorts.get(port) || { count: 0, bytes: 0 }
+          e.count += 1
+          e.bytes += p.capturedLen || 0
+          tcpPorts.set(port, e)
+        }
+      } else if (p.proto?.toUpperCase() === 'UDP' && (p.srcPort != null || p.dstPort != null)) {
+        const ports = [p.srcPort, p.dstPort].filter((x)=>x!=null) as number[]
+        for (const port of ports) {
+          const e = udpPorts.get(port) || { count: 0, bytes: 0 }
+          e.count += 1
+          e.bytes += p.capturedLen || 0
+          udpPorts.set(port, e)
+        }
+      }
+      if (ipFocus) {
+        if (p.dst === ipFocus) { focusIn += 1; focusInBytes += (p.capturedLen || 0) }
+        if (p.src === ipFocus) { focusOut += 1; focusOutBytes += (p.capturedLen || 0) }
+      }
     }
     const protoList = Array.from(byProto.entries()).map(([proto, v]) => ({ proto, ...v })).sort((a, b) => b.bytes - a.bytes)
     const topPeers = Array.from(byPeer.entries()).map(([peer, v]) => ({ peer, ...v })).sort((a, b) => b.bytes - a.bytes).slice(0, 10)
-    return { totalPackets, totalBytes, first, last, duration, pps, bps, protoList, topPeers }
-  }, [filtered])
+    const topTCP = Array.from(tcpPorts.entries()).map(([port, v]) => ({ port, ...v })).sort((a,b)=>b.bytes-a.bytes).slice(0,10)
+    const topUDP = Array.from(udpPorts.entries()).map(([port, v]) => ({ port, ...v })).sort((a,b)=>b.bytes-a.bytes).slice(0,10)
+    const uniquePeers = byPeer.size
+    const focus = ipFocus ? { inCount: focusIn, outCount: focusOut, inBytes: focusInBytes, outBytes: focusOutBytes } : null
+    return { totalPackets, totalBytes, first, last, duration, pps, bps, uniquePeers, protoList, topPeers, topTCP, topUDP, focus }
+  }, [packets])
 
   const [streamKey, setStreamKey] = useState<string | null>(null)
   const streamPackets = useMemo(() => {
@@ -775,7 +803,7 @@ function App() {
         </div>
       )}
       {/* Left side panel with tabs */}
-      <LeftPanel open={true} onClose={() => {}} tab={panelTab} setTab={setPanelTab} stats={stats as any} packet={selectedPacket} onProtoClick={(pr)=>toggleProto(pr)} />
+      <LeftPanel open={true} onClose={() => {}} tab={panelTab} setTab={setPanelTab} stats={stats as any} packet={selectedPacket} packetList={packets} selectedIndex={selectedIndex} onSelectIndex={(idx)=> setSelectedIndex(idx)} onProtoClick={(pr)=>toggleProto(pr)} onPortClick={(port: number)=> setFilter((prev)=> (prev? prev+ ' ' : '') + `port:${port}`)} />
     </div>
   )
 }

@@ -1,14 +1,20 @@
 import StatsPanel from './StatsPanel'
 import type { Decoded } from '../lib/decoders'
 
+type MiniPacket = { index: number; proto?: string; info?: string }
+
 export default function LeftPanel({
   open,
-  onClose,
+  // onClose (unused when always visible)
   tab,
-  setTab,
+  // setTab (unused when always showing stats)
   stats,
   packet,
+  packetList,
+  selectedIndex,
+  onSelectIndex,
   onProtoClick,
+  onPortClick,
 }: {
   open: boolean
   onClose: () => void
@@ -16,15 +22,36 @@ export default function LeftPanel({
   setTab: (t: 'packet' | 'stats') => void
   stats: any
   packet: { dec: Decoded; hex: string } | null
+  packetList?: MiniPacket[]
+  selectedIndex?: number | null
+  onSelectIndex?: (index: number) => void
   onProtoClick?: (proto: string) => void
+  onPortClick?: (port: number, proto: 'TCP'|'UDP') => void
 }) {
   return (
     <div className={'side-panel ' + (open ? 'open' : '')}>
-      <div className="side-tabs">
-        <button className={'side-tabbtn ' + (tab==='packet'?'active':'')} onClick={() => setTab('packet')}>Packet</button>
-        <button className={'side-tabbtn ' + (tab==='stats'?'active':'')} onClick={() => setTab('stats')}>Stats</button>
-        <div style={{flex:1}} />
-        <button className="chip" onClick={onClose}>Close</button>
+      <div className="details-title" style={{marginBottom:8}}>Stats</div>
+
+      {/* Stats always on top */}
+      <StatsPanel stats={stats} onProtoClick={onProtoClick} onPortClick={onPortClick} />
+
+      {/* Packet quick list */}
+      <div className="details" style={{marginTop:12}}>
+        <div className="details-title">Packets</div>
+        <div style={{maxHeight: 260, overflow:'auto'}}>
+          <table className="table" style={{fontSize:12}}>
+            <thead><tr><th>#</th><th>Proto</th><th>Info</th></tr></thead>
+            <tbody>
+              {packetList?.slice(0,200).map((p)=> (
+                <tr key={p.index} className={selectedIndex===p.index?'sel':''} style={{cursor:'pointer'}} onClick={()=> onSelectIndex && onSelectIndex(p.index)}>
+                  <td>{p.index}</td>
+                  <td><span className={'badge proto-' + ((p.proto||'').toLowerCase())}>{p.proto||'-'}</span></td>
+                  <td className="mono">{p.info||''}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {tab === 'packet' ? (
@@ -53,7 +80,7 @@ export default function LeftPanel({
           <div className="empty">No packet selected</div>
         )
       ) : (
-        <StatsPanel stats={stats} onClose={onClose} onProtoClick={onProtoClick} />
+        <StatsPanel stats={stats} onProtoClick={onProtoClick} onPortClick={onPortClick} />
       )}
     </div>
   )
