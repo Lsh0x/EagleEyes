@@ -118,20 +118,40 @@ function decodeL4(u: Uint8Array, off: number, proto: number, isv6 = false): { l4
     if (srcPort === 23 || dstPort === 23) return { l4: { proto: 'TCP', srcPort, dstPort, tcpFlags: flags }, summary: 'Telnet', tag: 'TELNET', meta: { tcp: { flags: flagsByte } } }
     if (srcPort === 21 || dstPort === 21) return { l4: { proto: 'TCP', srcPort, dstPort, tcpFlags: flags }, summary: 'FTP', tag: 'FTP', meta: { tcp: { flags: flagsByte } } }
     if (srcPort === 990 || dstPort === 990) return { l4: { proto: 'TCP', srcPort, dstPort, tcpFlags: flags }, summary: 'FTPS', tag: 'FTPS', meta: { tcp: { flags: flagsByte } } }
+    if (srcPort === 25 || dstPort === 25 || srcPort === 587 || dstPort === 587) return finalize('SMTP', { l2, tag: 'SMTP' })
+    if (srcPort === 465 || dstPort === 465) return finalize('SMTPS', { l2, tag: 'SMTPS' })
+    if (srcPort === 110 || dstPort === 110) return finalize('POP3', { l2, tag: 'POP3' })
+    if (srcPort === 143 || dstPort === 143) return finalize('IMAP', { l2, tag: 'IMAP' })
+    if (srcPort === 993 || dstPort === 993) return finalize('IMAPS', { l2, tag: 'IMAPS' })
+    if (srcPort === 389 || dstPort === 389) return finalize('LDAP', { l2, tag: 'LDAP' })
+    if (srcPort === 636 || dstPort === 636) return finalize('LDAPS', { l2, tag: 'LDAPS' })
+    if (srcPort === 139 || dstPort === 139 || srcPort === 445 || dstPort === 445) return finalize('SMB', { l2, tag: 'SMB' })
+    if (srcPort === 3389 || dstPort === 3389) return finalize('RDP', { l2, tag: 'RDP' })
+    if (srcPort === 554 || dstPort === 554) return finalize('RTSP', { l2, tag: 'RTSP' })
     const info = `${srcPort} → ${dstPort} [${flags}]`
     const tag = 'TCP'
     return { l4: { proto: 'TCP', srcPort, dstPort, tcpFlags: flags }, summary: info, tag, meta: { tcp: { flags: flagsByte } } }
   }
   if (proto === 17 && u.length >= off + 8) { // UDP
     const srcPort = (u[off] << 8) | u[off + 1]
-    const dstPort = (u[off] << 8) | u[off + 3]
+    const dstPort = (u[off + 2] << 8) | u[off + 3]
     const dns = srcPort === 53 || dstPort === 53 ? decodeDns(u, off + 8) : undefined
-    if (srcPort === 546 || dstPort === 546 || srcPort === 547 || dstPort === 547) {
-      return { l4: { proto: 'UDP', srcPort, dstPort }, summary: 'DHCPv6', tag: 'DHCPv6' }
+    if (srcPort === 161 || dstPort === 161 || srcPort === 162 || dstPort === 162) return finalize('SNMP', { l2, tag: 'SNMP' })
+    if (srcPort === 514 || dstPort === 514) return finalize('Syslog', { l2, tag: 'SYSLOG' })
+    if (srcPort === 69 || dstPort === 69) return finalize('TFTP', { l2, tag: 'TFTP' })
+    if (srcPort === 137 || dstPort === 137 || srcPort === 138 || dstPort === 138) return finalize('NetBIOS', { l2, tag: 'NETBIOS' })
+    if (srcPort === 546 || dstPort === 546 || srcPort === 547 || dstPort === 547) return finalize('DHCPv6', { l2, tag: 'DHCPv6' })
+    if (srcPort === 520 || dstPort === 520) return finalize('RIP', { l2, tag: 'RIP' })
+    if (srcPort === 5060 || dstPort === 5060) return finalize('SIP', { l2, tag: 'SIP' })
+    // RTP/RTCP heuristics
+    const first = u[off]
+    const second = u[off + 1]
+    const v2 = (first & 0xc0) === 0x80
+    if (v2) {
+      if (second >= 200 && second <= 204) return finalize('RTCP', { l2, tag: 'RTCP' })
+      if (u.length >= off + 12) return finalize('RTP', { l2, tag: 'RTP' })
     }
-    if (srcPort === 443 || dstPort === 443) {
-      return { l4: { proto: 'UDP', srcPort, dstPort }, summary: 'QUIC', tag: 'QUIC' }
-    }
+    if (srcPort === 443 || dstPort === 443) return finalize('QUIC', { l2, tag: 'QUIC' })
     const info = dns ? `DNS ${dns.summary}` : `${srcPort} → ${dstPort}`
     const tag = dns ? 'DNS' : 'UDP'
     return { l4: { proto: 'UDP', srcPort, dstPort }, summary: info, tag, meta: dns ? { dns: { id: dns.id!, qr: dns.qr, name: dns.name, qtype: dns.qtype, qtypeName: dns.qtypeName } } : undefined }

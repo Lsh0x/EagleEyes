@@ -73,6 +73,28 @@ pub fn decode(data: &[u8]) {
                     if !super::tls::decode(payload) {
                         super::ftp::decode(payload);
                     }
+                } else if src == 25 || dst == 25 || src == 587 || dst == 587 {
+                    super::smtp::decode(payload);
+                } else if src == 465 || dst == 465 {
+                    super::smtps::decode(payload);
+                } else if src == 110 || dst == 110 {
+                    super::pop3::decode(payload);
+                } else if src == 143 || dst == 143 {
+                    super::imap::decode(payload);
+                } else if src == 993 || dst == 993 {
+                    if !super::tls::decode(payload) {
+                        super::imap::decode(payload);
+                    }
+                } else if src == 389 || dst == 389 {
+                    super::ldap::decode(payload);
+                } else if src == 636 || dst == 636 {
+                    super::ldaps::decode(payload);
+                } else if src == 3389 || dst == 3389 {
+                    super::rdp::decode(payload);
+                } else if src == 139 || dst == 139 || src == 445 || dst == 445 {
+                    super::smb::decode(payload);
+                } else if src == 554 || dst == 554 {
+                    super::rtsp::decode(payload);
                 } else if src == 80
                     || dst == 80
                     || src == 8080

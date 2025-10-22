@@ -31,15 +31,25 @@ Layer 4 / Upper
 - DNS
 - DHCP, DHCPv6
 - NTP
+- Syslog (UDP/514)
+- SNMP (UDP/161,162)
 - mDNS
 - QUIC (minimal)
 - GRE (header)
 - RIP (UDP/520, minimal)
 - BGP (TCP/179, minimal)
 - HTTP, HTTPS
+- SMTP, SMTPS (465), POP3, IMAP, IMAPS
 - FTP, FTPS (implicit 990; explicit via AUTH TLS hint)
+- LDAP, LDAPS
 - SSH
 - Telnet
+- SMB/CIFS (TCP/445), NetBIOS (UDP/137,138; TCP/139)
+- RDP (TCP/3389)
+- TFTP (UDP/69)
+- SIP (UDP/TCP 5060)
+- RTP/RTCP (heuristic)
+- RTSP (TCP/554)
 - TLS (ClientHello SNI)
 
 ## Quick start

@@ -50,10 +50,24 @@ pub fn decode(data: &[u8]) {
                 super::dhcp::decode(payload);
             } else if src == 123 || dst == 123 {
                 super::ntp::decode(payload);
+            } else if src == 161 || dst == 161 || src == 162 || dst == 162 {
+                super::snmp::decode(payload);
+            } else if src == 514 || dst == 514 {
+                super::syslog::decode(payload);
+            } else if src == 69 || dst == 69 {
+                super::tftp::decode(payload);
+            } else if src == 137 || dst == 137 || src == 138 || dst == 138 {
+                super::netbios::decode(payload);
             } else if src == 546 || dst == 546 || src == 547 || dst == 547 {
                 super::dhcpv6::decode(payload);
             } else if src == 520 || dst == 520 {
                 super::rip::decode(payload);
+            } else if src == 5060 || dst == 5060 {
+                super::sip::decode(payload);
+            } else if super::rtcp::looks_like(payload) {
+                super::rtcp::decode(payload);
+            } else if super::rtp::looks_like(payload) {
+                super::rtp::decode(payload);
             } else if src == 443 || dst == 443 {
                 super::quic::decode(payload);
             } else {
