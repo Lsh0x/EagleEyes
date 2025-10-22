@@ -50,6 +50,8 @@ pub fn decode(data: &[u8]) {
                 super::dhcp::decode(payload);
             } else if src == 123 || dst == 123 {
                 super::ntp::decode(payload);
+            } else if src == 546 || dst == 546 || src == 547 || dst == 547 {
+                super::dhcpv6::decode(payload);
             } else if src == 520 || dst == 520 {
                 super::rip::decode(payload);
             } else if src == 443 || dst == 443 {

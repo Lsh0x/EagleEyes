@@ -62,6 +62,17 @@ pub fn decode(data: &[u8]) {
                 };
                 if src == 179 || dst == 179 {
                     super::bgp::decode(payload);
+                } else if src == 22 || dst == 22 {
+                    super::ssh::decode(payload);
+                } else if src == 23 || dst == 23 {
+                    super::telnet::decode(payload);
+                } else if src == 21 || dst == 21 {
+                    super::ftp::decode(payload);
+                } else if src == 990 || dst == 990 {
+                    // Implicit FTPS
+                    if !super::tls::decode(payload) {
+                        super::ftp::decode(payload);
+                    }
                 } else if src == 80
                     || dst == 80
                     || src == 8080

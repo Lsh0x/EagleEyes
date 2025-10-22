@@ -65,6 +65,8 @@ pub fn decode(data: &[u8]) {
                         ip::PROTO::IGMP => super::igmp::decode(next_data),
                         ip::PROTO::TCP => tcp::decode(next_data),
                         ip::PROTO::UDP => super::udp::decode(next_data),
+                        ip::PROTO::DCCP => super::dccp::decode(next_data),
+                        ip::PROTO::SCTP => super::sctp::decode(next_data),
                         ip::PROTO::GRE => super::gre::decode(next_data),
                         ip::PROTO::EIGRP => super::eigrp::decode(next_data),
                         ip::PROTO::OSPFIGP => super::ospf::decode(next_data),

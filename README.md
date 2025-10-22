@@ -26,17 +26,20 @@ Layer 3
 - IPsec AH/ESP (headers only)
 
 Layer 4 / Upper
-- TCP, UDP
+- TCP, UDP, SCTP (header), DCCP (header)
 - ICMPv4, ICMPv6
 - DNS
-- DHCP
+- DHCP, DHCPv6
 - NTP
 - mDNS
 - QUIC (minimal)
 - GRE (header)
 - RIP (UDP/520, minimal)
 - BGP (TCP/179, minimal)
-- HTTP (minimal)
+- HTTP, HTTPS
+- FTP, FTPS (implicit 990; explicit via AUTH TLS hint)
+- SSH
+- Telnet
 - TLS (ClientHello SNI)
 
 ## Quick start

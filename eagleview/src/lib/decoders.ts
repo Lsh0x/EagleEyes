@@ -113,17 +113,25 @@ function decodeL4(u: Uint8Array, off: number, proto: number, isv6 = false): { l4
     const dstPort = (u[off + 2] << 8) | u[off + 3]
     const flagsByte = u[off + 13]
     const flags = tcpFlags(flagsByte)
-    if (srcPort === 179 || dstPort === 179) {
-      return { l4: { proto: 'TCP', srcPort, dstPort, tcpFlags: flags }, summary: 'BGP', tag: 'BGP', meta: { tcp: { flags: flagsByte } } }
-    }
+    if (srcPort === 179 || dstPort === 179) return { l4: { proto: 'TCP', srcPort, dstPort, tcpFlags: flags }, summary: 'BGP', tag: 'BGP', meta: { tcp: { flags: flagsByte } } }
+    if (srcPort === 22 || dstPort === 22) return { l4: { proto: 'TCP', srcPort, dstPort, tcpFlags: flags }, summary: 'SSH', tag: 'SSH', meta: { tcp: { flags: flagsByte } } }
+    if (srcPort === 23 || dstPort === 23) return { l4: { proto: 'TCP', srcPort, dstPort, tcpFlags: flags }, summary: 'Telnet', tag: 'TELNET', meta: { tcp: { flags: flagsByte } } }
+    if (srcPort === 21 || dstPort === 21) return { l4: { proto: 'TCP', srcPort, dstPort, tcpFlags: flags }, summary: 'FTP', tag: 'FTP', meta: { tcp: { flags: flagsByte } } }
+    if (srcPort === 990 || dstPort === 990) return { l4: { proto: 'TCP', srcPort, dstPort, tcpFlags: flags }, summary: 'FTPS', tag: 'FTPS', meta: { tcp: { flags: flagsByte } } }
     const info = `${srcPort} → ${dstPort} [${flags}]`
     const tag = 'TCP'
     return { l4: { proto: 'TCP', srcPort, dstPort, tcpFlags: flags }, summary: info, tag, meta: { tcp: { flags: flagsByte } } }
   }
   if (proto === 17 && u.length >= off + 8) { // UDP
     const srcPort = (u[off] << 8) | u[off + 1]
-    const dstPort = (u[off + 2] << 8) | u[off + 3]
+    const dstPort = (u[off] << 8) | u[off + 3]
     const dns = srcPort === 53 || dstPort === 53 ? decodeDns(u, off + 8) : undefined
+    if (srcPort === 546 || dstPort === 546 || srcPort === 547 || dstPort === 547) {
+      return { l4: { proto: 'UDP', srcPort, dstPort }, summary: 'DHCPv6', tag: 'DHCPv6' }
+    }
+    if (srcPort === 443 || dstPort === 443) {
+      return { l4: { proto: 'UDP', srcPort, dstPort }, summary: 'QUIC', tag: 'QUIC' }
+    }
     const info = dns ? `DNS ${dns.summary}` : `${srcPort} → ${dstPort}`
     const tag = dns ? 'DNS' : 'UDP'
     return { l4: { proto: 'UDP', srcPort, dstPort }, summary: info, tag, meta: dns ? { dns: { id: dns.id!, qr: dns.qr, name: dns.name, qtype: dns.qtype, qtypeName: dns.qtypeName } } : undefined }
@@ -164,7 +172,7 @@ function tcpFlags(b: number): string {
   return flags.join(',') || 'NONE'
 }
 function ipv4ProtoToName(p: number): string {
-  const m: Record<number,string> = {1:'ICMP',2:'IGMP',6:'TCP',17:'UDP',47:'GRE',50:'ESP',51:'AH',88:'EIGRP',89:'OSPF'}
+  const m: Record<number,string> = {1:'ICMP',2:'IGMP',6:'TCP',17:'UDP',33:'DCCP',47:'GRE',50:'ESP',51:'AH',88:'EIGRP',89:'OSPF',132:'SCTP'}
   return m[p] || `Proto ${p}`
 }
 function ipv6NextHeaderToName(p: number): string {
