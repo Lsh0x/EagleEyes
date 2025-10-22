@@ -33,6 +33,7 @@
   grid-template-rows: auto auto 1fr;
   gap: 12px;
   padding: 16px;
+  margin-left: 360px; /* leave space for always-on left panel */
 }
 .dropzone {
   border: 1px dashed #2d3643;
@@ -160,35 +161,19 @@
 .stream-dir { color:#9fb1c1; margin-bottom:4px; }
 .stream-hex { background:#0b0f14; color:#cbd5e1; padding:8px; border-radius:6px; overflow:auto; }
 
-/* Side panel (left) */
+/* Side panel (left, always visible) */
 .side-panel {
   position: fixed;
   top: 56px;
-  left: -360px;
+  left: 0;
   width: 340px;
   height: calc(100vh - 56px);
   background: #0d1117;
   border-right: 1px solid #1f2630;
-  transition: left 0.2s ease-in-out;
   padding: 12px;
   overflow: auto;
   z-index: 30;
 }
-.side-panel.open { left: 0; }
-.side-tab {
-  position: fixed;
-  top: 50%;
-  left: 0;
-  transform: translate(-100%, -50%);
-  background: #1f6feb;
-  color: #fff;
-  border: none;
-  border-radius: 0 6px 6px 0;
-  padding: 6px 8px;
-  cursor: pointer;
-  z-index: 31;
-}
-.side-tab.active { background: #3877ee; }
 
 /* Tabs inside panel */
 .side-tabs { display:flex; gap:8px; margin-bottom:8px; }
