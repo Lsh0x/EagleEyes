@@ -1,5 +1,7 @@
 // RTCP minimal decoder (RFC 3550)
-#[derive(Clone, Copy)]
+use crate::utils::cow_struct;
+
+#[derive(Default, Clone, Copy)]
 #[repr(C, packed)]
 pub struct Header {
     pub v_p_count: u8,
@@ -25,6 +27,11 @@ pub fn decode(data: &[u8]) {
         println!("RTCP (truncated) {}B", data.len());
         return;
     }
-    let h = unsafe { &*(data.as_ptr() as *const Header) };
-    println!("RTCP pt={} len={}", h.pt, u16::from_be(h.length));
+    let (hdr, _) = data.split_at(Header::SIZE);
+    if let Some(h) = cow_struct::<Header>(hdr) {
+        let length = u16::from_be(h.length);
+        println!("RTCP pt={} len={}", h.pt, length);
+    } else {
+        println!("RTCP (truncated) {}B", data.len());
+    }
 }

@@ -1,5 +1,7 @@
 // IGMPv2 minimal decoder
-#[derive(Clone, Copy)]
+use crate::utils::cow_struct;
+
+#[derive(Default, Clone, Copy)]
 #[repr(C, packed)]
 pub struct Header {
     pub typ: u8,
@@ -30,6 +32,8 @@ pub fn decode(data: &[u8]) {
     if data.len() < Header::SIZE {
         return;
     }
-    let h = unsafe { &*(data.as_ptr() as *const Header) };
-    println!("{}", display(h));
+    let (hdr, _) = data.split_at(Header::SIZE);
+    if let Some(h) = cow_struct::<Header>(hdr) {
+        println!("{}", display(&h));
+    }
 }

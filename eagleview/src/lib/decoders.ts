@@ -128,6 +128,7 @@ function decodeL4(u: Uint8Array, off: number, proto: number, isv6 = false): { l4
     if (srcPort === 139 || dstPort === 139 || srcPort === 445 || dstPort === 445) return finalize('SMB', { l2, tag: 'SMB' })
     if (srcPort === 3389 || dstPort === 3389) return finalize('RDP', { l2, tag: 'RDP' })
     if (srcPort === 554 || dstPort === 554) return finalize('RTSP', { l2, tag: 'RTSP' })
+    if (srcPort === 5060 || dstPort === 5060) return finalize('SIP', { l2, tag: 'SIP' })
     const info = `${srcPort} → ${dstPort} [${flags}]`
     const tag = 'TCP'
     return { l4: { proto: 'TCP', srcPort, dstPort, tcpFlags: flags }, summary: info, tag, meta: { tcp: { flags: flagsByte } } }

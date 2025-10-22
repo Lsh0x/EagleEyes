@@ -1,5 +1,7 @@
 // DHCPv6 minimal decoder (RFC 8415)
-#[derive(Clone, Copy)]
+use crate::utils::cow_struct;
+
+#[derive(Default, Clone, Copy)]
 #[repr(C, packed)]
 pub struct Header {
     pub msg_type: u8,
@@ -14,7 +16,9 @@ pub fn decode(data: &[u8]) {
     if data.len() < Header::SIZE {
         return;
     }
-    let h = unsafe { &*(data.as_ptr() as *const Header) };
-    let xid = ((h.xid[0] as u32) << 16) | ((h.xid[1] as u32) << 8) | (h.xid[2] as u32);
-    println!("DHCPv6 type={} xid=0x{:06x}", h.msg_type, xid);
+    let (hdr, _) = data.split_at(Header::SIZE);
+    if let Some(h) = cow_struct::<Header>(hdr) {
+        let xid = u32::from_be_bytes([0, h.xid[0], h.xid[1], h.xid[2]]);
+        println!("DHCPv6 type={} xid=0x{:06x}", h.msg_type, xid);
+    }
 }
