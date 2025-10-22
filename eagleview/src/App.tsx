@@ -3,6 +3,7 @@ import './App.css'
 
 import { parseCapture } from './lib/parsers'
 import { decodePacket, extractL4Payload } from './lib/decoders'
+import StatsPanel from './components/StatsPanel'
 
 export type PacketRow = {
   index: number
@@ -48,6 +49,7 @@ function App() {
   const [txnGrouped, setTxnGrouped] = useState<boolean>(false)
   const [txnFocus, setTxnFocus] = useState<string | null>(null)
   const [expandedTxns, setExpandedTxns] = useState<Set<string>>(new Set())
+  const [showStats, setShowStats] = useState<boolean>(false)
 
   const availableProtos = useMemo(() => {
     const set = new Set<string>()
@@ -230,6 +232,38 @@ function App() {
     return out
   }, [txnGrouped, packets, flowKey, ipFocus, ipFocusRole, selectedProtos, filter])
 
+  // Stats for side panel (based on current filtered rows)
+  const stats = useMemo(() => {
+    const arr = filtered
+    const totalPackets = arr.length
+    const totalBytes = arr.reduce((a, p) => a + (p.capturedLen || 0), 0)
+    const times = arr.map(p => p.ts || 0).filter(Boolean)
+    const first = times.length ? Math.min(...times) : null
+    const last = times.length ? Math.max(...times) : null
+    const duration = first != null && last != null ? Math.max(0, last - first) : null
+    const pps = duration && duration > 0 ? totalPackets / duration : null
+    const bps = duration && duration > 0 ? (totalBytes * 8) / duration : null
+    const byProto = new Map<string, { count: number; bytes: number }>()
+    const byPeer = new Map<string, { count: number; bytes: number }>()
+    for (const p of arr) {
+      const pr = (p.proto || 'OTHER').toUpperCase()
+      const ep = byProto.get(pr) || { count: 0, bytes: 0 }
+      ep.count += 1
+      ep.bytes += p.capturedLen || 0
+      byProto.set(pr, ep)
+      for (const ip of [p.src, p.dst]) {
+        if (!ip) continue
+        const e = byPeer.get(ip) || { count: 0, bytes: 0 }
+        e.count += 1
+        e.bytes += p.capturedLen || 0
+        byPeer.set(ip, e)
+      }
+    }
+    const protoList = Array.from(byProto.entries()).map(([proto, v]) => ({ proto, ...v })).sort((a, b) => b.bytes - a.bytes)
+    const topPeers = Array.from(byPeer.entries()).map(([peer, v]) => ({ peer, ...v })).sort((a, b) => b.bytes - a.bytes).slice(0, 10)
+    return { totalPackets, totalBytes, first, last, duration, pps, bps, protoList, topPeers }
+  }, [filtered])
+
   const [streamKey, setStreamKey] = useState<string | null>(null)
   const streamPackets = useMemo(() => {
     if (!streamKey || !parsedRef.current) return [] as { dir: 'A→B' | 'B→A'; time: number; data: Uint8Array }[]
@@ -401,7 +435,8 @@ function App() {
     <div className="app-root">
       <header className="topbar">
         <div className="brand">EagleView</div>
-        <div className="actions">
+        <div className="actions" style={{display:'flex', gap:8}}>
+          <button className="btn" onClick={() => setShowStats(v=>!v)}>{showStats? 'Hide stats' : 'Show stats'}</button>
           <label className="btn" htmlFor="file-input">
             + Open PCAP/PCAPNG
           </label>
@@ -768,6 +803,11 @@ function App() {
           </div>
         </div>
       )}
+      {/* Side stats panel */}
+      <div className={"side-panel " + (showStats ? 'open' : '')}>
+        <StatsPanel stats={stats as any} onClose={() => setShowStats(false)} />
+      </div>
+      <button className={"side-tab " + (showStats ? 'active' : '')} onClick={() => setShowStats(v=>!v)} title="Stats">▸</button>
     </div>
   )
 }
