@@ -95,6 +95,8 @@ pub fn decode(data: &[u8]) {
                     super::smb::decode(payload);
                 } else if src == 554 || dst == 554 {
                     super::rtsp::decode(payload);
+                } else if src == 5060 || dst == 5060 {
+                    super::sip::decode(payload);
                 } else if src == 80
                     || dst == 80
                     || src == 8080
