@@ -5,7 +5,13 @@
 pub fn decode(data: &[u8]) {
     if data.len() >= 8 && &data[0..4] == b"AMQP" {
         let v = &data[4..8];
-        let desc = if v == [0, 0, 9, 1] { "0-9-1" } else if v == [0, 1, 0, 0] { "1.0" } else { "unknown" };
+        let desc = if v == [0, 0, 9, 1] {
+            "0-9-1"
+        } else if v == [0, 1, 0, 0] {
+            "1.0"
+        } else {
+            "unknown"
+        };
         println!("AMQP header {} ({}B)", desc, data.len());
         return;
     }

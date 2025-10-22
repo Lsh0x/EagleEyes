@@ -72,6 +72,14 @@ pub fn decode(data: &[u8]) {
                 super::quic::decode(payload);
             } else if src == 5683 || dst == 5683 {
                 super::coap::decode(payload);
+            } else if src == 1900 || dst == 1900 {
+                super::ssdp::decode(payload);
+            } else if src == 5355 || dst == 5355 {
+                super::llmnr::decode(payload);
+            } else if src == 88 || dst == 88 {
+                super::kerberos::decode(payload);
+            } else if src == 3478 || dst == 3478 || src == 5349 || dst == 5349 {
+                super::stun::decode(payload);
             } else {
                 println!("{}", display(&h));
             }
