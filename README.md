@@ -20,6 +20,9 @@ Layer 2 / 2.5
 Layer 3
 - IPv4, IPv6
 - ARP
+- IGMP
+- OSPF (v2 minimal)
+- EIGRP (minimal)
 - IPsec AH/ESP (headers only)
 
 Layer 4 / Upper
@@ -31,6 +34,8 @@ Layer 4 / Upper
 - mDNS
 - QUIC (minimal)
 - GRE (header)
+- RIP (UDP/520, minimal)
+- BGP (TCP/179, minimal)
 - HTTP (minimal)
 - TLS (ClientHello SNI)
 

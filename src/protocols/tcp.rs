@@ -60,7 +60,9 @@ pub fn decode(data: &[u8]) {
                 } else {
                     &data[0..0]
                 };
-                if src == 80
+                if src == 179 || dst == 179 {
+                    super::bgp::decode(payload);
+                } else if src == 80
                     || dst == 80
                     || src == 8080
                     || dst == 8080

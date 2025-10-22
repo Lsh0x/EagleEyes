@@ -113,6 +113,9 @@ function decodeL4(u: Uint8Array, off: number, proto: number, isv6 = false): { l4
     const dstPort = (u[off + 2] << 8) | u[off + 3]
     const flagsByte = u[off + 13]
     const flags = tcpFlags(flagsByte)
+    if (srcPort === 179 || dstPort === 179) {
+      return { l4: { proto: 'TCP', srcPort, dstPort, tcpFlags: flags }, summary: 'BGP', tag: 'BGP', meta: { tcp: { flags: flagsByte } } }
+    }
     const info = `${srcPort} → ${dstPort} [${flags}]`
     const tag = 'TCP'
     return { l4: { proto: 'TCP', srcPort, dstPort, tcpFlags: flags }, summary: info, tag, meta: { tcp: { flags: flagsByte } } }
@@ -161,7 +164,7 @@ function tcpFlags(b: number): string {
   return flags.join(',') || 'NONE'
 }
 function ipv4ProtoToName(p: number): string {
-  const m: Record<number,string> = {1:'ICMP',6:'TCP',17:'UDP'}
+  const m: Record<number,string> = {1:'ICMP',2:'IGMP',6:'TCP',17:'UDP',47:'GRE',50:'ESP',51:'AH',88:'EIGRP',89:'OSPF'}
   return m[p] || `Proto ${p}`
 }
 function ipv6NextHeaderToName(p: number): string {

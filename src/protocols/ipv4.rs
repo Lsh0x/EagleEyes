@@ -60,10 +60,14 @@ pub fn decode(data: &[u8]) {
                     println!("{}", display(&header));
                     match header.protocol {
                         ip::PROTO::ESP => esp::decode(next_data),
+                        ip::PROTO::AH => super::ah::decode(next_data),
                         ip::PROTO::ICMP => icmpv4::decode(next_data),
+                        ip::PROTO::IGMP => super::igmp::decode(next_data),
                         ip::PROTO::TCP => tcp::decode(next_data),
                         ip::PROTO::UDP => super::udp::decode(next_data),
                         ip::PROTO::GRE => super::gre::decode(next_data),
+                        ip::PROTO::EIGRP => super::eigrp::decode(next_data),
+                        ip::PROTO::OSPFIGP => super::ospf::decode(next_data),
                         _ => println!("protocol::ipv4 {:?}", ip::protocol_as_str(header.protocol)),
                     }
                 }
