@@ -3,12 +3,13 @@ import type { Decoded } from '../lib/decoders'
 
 export default function LeftPanel({
   open,
-  onClose,
+  // onClose (unused when always visible)
   tab,
-  setTab,
+  // setTab (unused when always showing stats)
   stats,
   packet,
   onProtoClick,
+  onPortClick,
 }: {
   open: boolean
   onClose: () => void
@@ -17,15 +18,11 @@ export default function LeftPanel({
   stats: any
   packet: { dec: Decoded; hex: string } | null
   onProtoClick?: (proto: string) => void
+  onPortClick?: (port: number, proto: 'TCP'|'UDP') => void
 }) {
   return (
     <div className={'side-panel ' + (open ? 'open' : '')}>
-      <div className="side-tabs">
-        <button className={'side-tabbtn ' + (tab==='packet'?'active':'')} onClick={() => setTab('packet')}>Packet</button>
-        <button className={'side-tabbtn ' + (tab==='stats'?'active':'')} onClick={() => setTab('stats')}>Stats</button>
-        <div style={{flex:1}} />
-        <button className="chip" onClick={onClose}>Close</button>
-      </div>
+      <div className="details-title" style={{marginBottom:8}}>Stats</div>
 
       {tab === 'packet' ? (
         packet ? (
@@ -53,7 +50,7 @@ export default function LeftPanel({
           <div className="empty">No packet selected</div>
         )
       ) : (
-        <StatsPanel stats={stats} onClose={onClose} onProtoClick={onProtoClick} />
+        <StatsPanel stats={stats} onProtoClick={onProtoClick} onPortClick={onPortClick} />
       )}
     </div>
   )
