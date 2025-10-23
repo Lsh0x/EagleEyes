@@ -1008,7 +1008,9 @@ function App() {
                   <th>#</th>
                   <th>Time</th>
                   <th>Source</th>
+                  <th>Src MAC</th>
                   <th>Destination</th>
+                  <th>Dst MAC</th>
                   <th>Protocol</th>
                   <th>Length</th>
                   <th>Info</th>
@@ -1037,6 +1039,7 @@ function App() {
                           </button>
                         ) : '-'}
                       </td>
+                      <td className="mono" style={{fontSize: '0.85em', color: '#666'}}>{p.srcMac || '-'}</td>
                       <td>
                         {p.dst ? (
                           <button className="link" onClick={(e) => { e.stopPropagation(); setIpFocus(p.dst!); setIpFocusRole('dst'); setViewMode('grouped'); setPeerFocus(null) }} title="Focus on this IP as Destination">
@@ -1044,6 +1047,7 @@ function App() {
                           </button>
                         ) : '-'}
                       </td>
+                      <td className="mono" style={{fontSize: '0.85em', color: '#666'}}>{p.dstMac || '-'}</td>
                       <td>
                         <span
                           className={'badge clickable proto-' + ((p.proto||'').toLowerCase())}
@@ -1071,7 +1075,7 @@ function App() {
                   ),
                   selectedIndex === p.index ? (
                     <tr key={`exp-${p.index}`} className="row-expansion">
-                      <td colSpan={7}>
+                      <td colSpan={9}>
                         <div className="subtable">
                           <div className="subtable-title" style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
                             <span>Packet {p.index} details</span>
