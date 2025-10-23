@@ -82,8 +82,10 @@ export default function LeftPanel({
               <div className="details-grid">
                 <div>
                   <div className="details-title">Details</div>
-                  <div>L2: {packet.dec.l2?.srcMac} → {packet.dec.l2?.dstMac}</div>
-                  <div>L3: {packet.dec.l3?.proto} {packet.dec.l3?.src} → {packet.dec.l3?.dst}</div>
+                  <div>Src IP: {packet.dec.l3?.src || '-'}</div>
+                  <div>Dst IP: {packet.dec.l3?.dst || '-'}</div>
+                  <div>Src MAC: {packet.dec.l2?.srcMac || '-'}</div>
+                  <div>Dst MAC: {packet.dec.l2?.dstMac || '-'}</div>
                   <div>L4: {packet.dec.l4?.proto} {packet.dec.l4?.srcPort ?? ''} → {packet.dec.l4?.dstPort ?? ''} {packet.dec.l4?.tcpFlags ? `[${packet.dec.l4.tcpFlags}]` : ''}</div>
                   {packet.dec.meta?.dns && (
                     <div>
