@@ -14,13 +14,16 @@ const FILTER_EXAMPLES: { label: string; query: string }[] = [
   { label: 'UDP DNS to 8.8.8.8:53, small payloads', query: 'proto:udp ip:8.8.8.8 port:53 len:<200' },
   { label: 'DNS flow on 10.10.10.20 with id=53321, len<180', query: 'proto:dns ip:10.10.10.20 dns.id:53321 len:<180' },
   { label: 'ARP who-has (requests) around 192.168.1.1', query: 'proto:arp arp.op:request ip:192.168.1.1' },
-  { label: 'HTTP-ish traffic (80/8080) to 10.10.10.20, len>300', query: 'proto:tcp port:80 port:8080 ip:10.10.10.20 len:>300' },
+  { label: 'HTTP-ish traffic (80/8080) to 10.10.10.20, len>300', query: 'proto:tcp port:80 port:8080 ip:10.10.10.10 len:>300' },
   { label: 'TCP teardown (FIN/RST) with 192.168.89.2, len>=60', query: 'proto:tcp ip:192.168.89.2 tcp.fin tcp.rst len:>=60' },
   { label: 'NTP-like: UDP 123 from 10.10.10.20 → 10.10.10.10, len<180', query: 'proto:udp src:10.10.10.20 dst:10.10.10.10 port:123 len:<180' },
   { label: 'SSH attempts: TCP 22 from 10.10.10.10 → 10.10.10.20, len<200', query: 'proto:tcp src:10.10.10.10 dst:10.10.10.20 port:22 len:<200' },
   { label: 'ACK-heavy TCP with 192.168.88.1 on :49156, len>60', query: 'proto:tcp ip:192.168.88.1 port:49156 tcp.ack len:>60' },
   { label: 'DNS on 192.168.89.2 with txn id=1, len<120', query: 'proto:dns ip:192.168.89.2 dns.id:1 len:<120' },
   { label: 'Any traffic with peer 8.8.8.8, mixed', query: 'ip:8.8.8.8 proto:tcp proto:udp len:>60' },
+  { label: 'Traffic from MAC address 02:00:00:00:00:1a', query: 'srcmac:02:00:00:00:00:1a' },
+  { label: 'Traffic to MAC address aa:bb:cc:dd:ee:ff', query: 'dstmac:aa:bb:cc:dd:ee:ff' },
+  { label: 'Any traffic with MAC aa:bb:cc', query: 'mac:aa:bb:cc' },
 ]
 
 // Safety limits to avoid browser crashes with very large captures
@@ -38,6 +41,8 @@ export type PacketRow = {
   dst?: string
   srcPort?: number
   dstPort?: number
+  srcMac?: string
+  dstMac?: string
   proto?: string
   app?: string
   info?: string
@@ -175,6 +180,8 @@ function App() {
           const dec = decodePacket(p)
           const src = dec.l3?.src ?? dec.l2?.srcMac
           const dst = dec.l3?.dst ?? dec.l2?.dstMac
+          const srcMac = dec.l2?.srcMac
+          const dstMac = dec.l2?.dstMac
           const proto = dec.protocolTag
           const srcPort = dec.l4?.srcPort
           const dstPort = dec.l4?.dstPort
@@ -188,6 +195,8 @@ function App() {
             ifIndex: p.ifIndex,
             src,
             dst,
+            srcMac,
+            dstMac,
             srcPort,
             dstPort,
             proto,
@@ -508,6 +517,14 @@ function App() {
         return (p.src || '').toLowerCase().includes(v)
       case 'dst':
         return (p.dst || '').toLowerCase().includes(v)
+      case 'mac':
+        return (
+          (p.srcMac || '').toLowerCase().includes(v) || (p.dstMac || '').toLowerCase().includes(v)
+        )
+      case 'srcmac':
+        return (p.srcMac || '').toLowerCase().includes(v)
+      case 'dstmac':
+        return (p.dstMac || '').toLowerCase().includes(v)
       case 'port': {
         const vi = parseInt(v, 10)
         return isNaN(vi) ? false : (p.info || '').match(/\b(\d+)\s*→\s*(\d+)/)?.some(n => parseInt(n,10)===vi) || (p.info||'').includes(` ${vi} `)
