@@ -1,1 +1,7 @@
 /target
+# WASM (wasm-pack) artifacts
+/crates/protocol-wasm/pkg/
+/crates/protocol-wasm/target/
+/crates/protocol-wasm/.wasm-pack/
+# Built frontend bundles (contain wasm assets)
+/eagleview/dist/

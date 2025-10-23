@@ -197,7 +197,7 @@ The decoder automatically detects and labels:
 
 ## Future Enhancements
 
-- [ ] IPv6 support in descriptions
+- [x] IPv6 support in descriptions
 - [ ] More detailed TCP flag descriptions
 - [ ] Application protocol payload parsing
 - [ ] Protocol anomaly detection
