@@ -69,9 +69,9 @@ export function decodePacket(p: ParsedPacket): Decoded {
   if (wasmDecode) {
     try {
       const res = wasmDecode(p.data) as Decoded
-      // Ensure minimal fields
+      // Normalize/upgrade protocol tag to the deepest layer available
       if (!res.summary) (res as any).summary = ''
-      if (!res.protocolTag) (res as any).protocolTag = (res.l4?.proto || res.l3?.proto || 'ETH') as any
+      ;(res as any).protocolTag = bestProtocolTag(res)
       return res
     } catch {}
   }
@@ -143,15 +143,18 @@ export function decodePacket(p: ParsedPacket): Decoded {
   return finalize(etherType ? `Ethertype 0x${etherType.toString(16)}` : 'Frame', { l2, tag: 'ETH' })
 
   function finalize(summary: string, extra?: { l2?: any; l3?: any; l4?: any; tag?: string; appTag?: string; meta?: Decoded['meta'] }) {
-    return {
+    const tmp: Decoded = {
       l2: extra?.l2 ?? l2,
       l3: extra?.l3,
       l4: extra?.l4,
       summary,
-      protocolTag: extra?.tag || (extra?.l4?.proto || extra?.l3?.proto || 'ETH'),
+      protocolTag: 'ETH',
       appTag: extra?.appTag,
       meta: extra?.meta,
-    } as Decoded
+    }
+    // Prefer app tag, then explicit tag (e.g., DNS/HTTP), then L4 proto, then L3 proto
+    tmp.protocolTag = bestProtocolTag({ ...tmp, protocolTag: extra?.tag || tmp.protocolTag })
+    return tmp
   }
 }
 
@@ -477,6 +480,22 @@ export function extractL4Payload(u: Uint8Array): { proto: 'TCP' | 'UDP' | 'OTHER
     return { proto: 'OTHER', offset: l4, length: Math.max(0, u.length - l4) }
   }
   return null
+}
+
+function bestProtocolTag(d: Decoded): string {
+  // App tag most specific (HTTP/DNS/TLS/QUIC/etc.)
+  if (d.appTag && typeof d.appTag === 'string') return d.appTag.toUpperCase()
+  // If protocolTag already a specific application tag, keep it
+  if (d.protocolTag && !['TCP','UDP','ICMP','ICMPV4','ICMPV6','IPV4','IPV6','ETH','FRAME','LLC'].includes(String(d.protocolTag).toUpperCase())) {
+    return String(d.protocolTag).toUpperCase()
+  }
+  // Then L4 protocol if present
+  if (d.l4?.proto) return String(d.l4.proto).toUpperCase()
+  // Then L3 (IPv4/IPv6/ARP)
+  if (d.l3?.proto) return String(d.l3.proto).toUpperCase()
+  // Then L2
+  if (d.l2?.etherTypeName) return String(d.l2.etherTypeName).toUpperCase()
+  return 'ETH'
 }
 
 function sniffStun(payload: Uint8Array): boolean {

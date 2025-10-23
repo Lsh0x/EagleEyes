@@ -39,10 +39,38 @@ The tagger recognizes common protocols by header/port/heuristics (e.g., QUIC, RT
 
 ## Tips
 - Use the protocol chips to quickly filter; click again to toggle multiple
-- Type filters to refine results (e.g., `proto:TCP ip:192.168.1.10 port:443 dns:example.com`)
+- Type filters to refine results (e.g., `proto:tcp ip:192.168.1.10 port:443 len:>300 tcp.syn`, `proto:dns ip:10.0.0.5 dns.id:53321`)
 - Switch to Grouped view to see peers, bytes, and protocol mix; expand for samples
 - Turn on Transaction grouping to bucket DNS IDs and TCP handshakes
 - Use Stream view to preview application payload slices for a selected flow
+
+## EagleView filter syntax (EV)
+Use simple space-separated tokens (default AND) or explicit OR (`||`, `|`, `or`) / AND (`&&`, `and`) combiners. Supported tokens:
+- `ipv4` / `ipv6` / `arp` (L3 protocol)
+- `proto:<tcp|udp|dns|arp>` or bare `tcp`, `udp`, `dns`, `arp` (L4/app)
+- `ip:<addr>` or `host:<addr>` or `addr:<addr>` (matches src or dst IP)
+- `src:<ip>` / `dst:<ip>`
+- `mac:<xx:xx:..>` or `srcmac:<mac>` / `dstmac:<mac>`
+- `port:<n>` (matches if either endpoint uses the port)
+- `tcp.syn`, `tcp.ack`, `tcp.fin`, `tcp.rst`
+- `dns.id:<n>`
+- `arp.op:<request|reply|n>`
+- `len:<op><n>` where `<op>` is one of `> >= < <= =` and `<n>` is bytes
+
+Examples:
+- `ipv4` (all IPv4 traffic)
+- `ipv6` (all IPv6 traffic)
+- `arp` (ARP)
+- `tcp.syn` (TCP SYN flag)
+- `ipv4 tcp port:443` (IPv4 TCP on port 443)
+- `tcp && port:443` (explicit AND)
+- `arp || dns` (OR)
+- `tcp.syn || tcp.fin` (either flag)
+- `ip:10.0.0.5 port:443 && len:>300` (combined)
+
+Chatbot: Assistant replies highlight EV filter lines; click to toggle them. Selecting multiple combines with OR or AND (choose in dropdown).
+
+Note: Wireshark/TShark display filters are not accepted in the input box. Use EV filters only.
 
 ## Large captures and limits
 EagleView runs entirely in the browser. To avoid crashes on low-memory devices:
