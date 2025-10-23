@@ -177,10 +177,22 @@
   overflow: hidden;
 }
 .side-panel.open {
+  /* width is controlled via inline style for resizing; default fallback */
   width: 320px;
   padding: 12px;
   overflow: auto;
 }
+
+.side-resizer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  background: transparent;
+}
+.side-resizer:hover { background: rgba(255,255,255,0.06); }
 
 /* Toggle button (icon only when collapsed) */
 .side-toggle {

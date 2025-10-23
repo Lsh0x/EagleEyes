@@ -15,6 +15,8 @@ export default function LeftPanel({
   onSelectIndex,
   onProtoClick,
   onPortClick,
+  width,
+  onResize,
 }: {
   open: boolean
   onClose: () => void
@@ -27,10 +29,33 @@ export default function LeftPanel({
   onSelectIndex?: (index: number) => void
   onProtoClick?: (proto: string) => void
   onPortClick?: (port: number, proto: 'TCP'|'UDP') => void
+  width?: number
+  onResize?: (w: number) => void
 }) {
+  function startDrag(e: React.MouseEvent) {
+    if (!onResize) return
+    e.preventDefault()
+    const startX = e.clientX
+    const startW = width || 320
+    const minW = 260, maxW = 560
+    function onMove(ev: MouseEvent) {
+      const next = Math.max(minW, Math.min(maxW, startW + (ev.clientX - startX)))
+      onResize && onResize(next)
+    }
+    function onUp() {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }
+
   return (
-    <div className={'side-panel ' + (open ? 'open' : '')} role="complementary" aria-label="Statistics panel">
+    <div className={'side-panel ' + (open ? 'open' : '')} role="complementary" aria-label="Statistics panel" style={open && width ? { width } : undefined}>
       <button className="side-toggle" onClick={() => onClose()} title={open? 'Collapse' : 'Expand'}>{open ? '◀' : '▶'}</button>
+      {open && (
+        <div className="side-resizer" onMouseDown={startDrag} title="Drag to resize" />
+      )}
       <div className="side-content">
         <div className="details-title" style={{marginBottom:8}}>Stats</div>
         <StatsPanel stats={stats} onProtoClick={onProtoClick} onPortClick={onPortClick} />

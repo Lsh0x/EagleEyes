@@ -7,6 +7,22 @@ import LeftPanel from './components/LeftPanel'
 import type { Exchange } from './lib/matchers'
 import { buildExchanges, groupExchangesByFlow } from './lib/matchers'
 
+// Search suggestions (select to populate the input, then edit)
+const FILTER_EXAMPLES: { label: string; query: string }[] = [
+  { label: 'TCP SYN to 10.10.10.20:49156 from 10.10.10.10, len>100', query: 'proto:tcp src:10.10.10.10 dst:10.10.10.20 port:49156 len:>100 tcp.syn' },
+  { label: 'TCP 443 between 192.168.88.1 ⇄ 192.168.88.2, len>=300', query: 'proto:tcp src:192.168.88.1 dst:192.168.88.2 port:443 len:>=300' },
+  { label: 'UDP DNS to 8.8.8.8:53, small payloads', query: 'proto:udp ip:8.8.8.8 port:53 len:<200' },
+  { label: 'DNS flow on 10.10.10.20 with id=53321, len<180', query: 'proto:dns ip:10.10.10.20 dns.id:53321 len:<180' },
+  { label: 'ARP who-has (requests) around 192.168.1.1', query: 'proto:arp arp.op:request ip:192.168.1.1' },
+  { label: 'HTTP-ish traffic (80/8080) to 10.10.10.20, len>300', query: 'proto:tcp port:80 port:8080 ip:10.10.10.20 len:>300' },
+  { label: 'TCP teardown (FIN/RST) with 192.168.89.2, len>=60', query: 'proto:tcp ip:192.168.89.2 tcp.fin tcp.rst len:>=60' },
+  { label: 'NTP-like: UDP 123 from 10.10.10.20 → 10.10.10.10, len<180', query: 'proto:udp src:10.10.10.20 dst:10.10.10.10 port:123 len:<180' },
+  { label: 'SSH attempts: TCP 22 from 10.10.10.10 → 10.10.10.20, len<200', query: 'proto:tcp src:10.10.10.10 dst:10.10.10.20 port:22 len:<200' },
+  { label: 'ACK-heavy TCP with 192.168.88.1 on :49156, len>60', query: 'proto:tcp ip:192.168.88.1 port:49156 tcp.ack len:>60' },
+  { label: 'DNS on 192.168.89.2 with txn id=1, len<120', query: 'proto:dns ip:192.168.89.2 dns.id:1 len:<120' },
+  { label: 'Any traffic with peer 8.8.8.8, mixed', query: 'ip:8.8.8.8 proto:tcp proto:udp len:>60' },
+]
+
 // Safety limits to avoid browser crashes with very large captures
 const HARD_LIMIT_BYTES = 250 * 1024 * 1024; // 250 MB: above this, refuse to load
 const SOFT_LIMIT_BYTES = 50 * 1024 * 1024;  // 50 MB: above this, load only the first chunk
@@ -62,6 +78,11 @@ function App() {
   const [showExchanges, setShowExchanges] = useState<boolean>(false)
   const [collapsePairs, setCollapsePairs] = useState<boolean>(false)
   const [sidePinned, setSidePinned] = useState<boolean>(false)
+  const [sideWidth, setSideWidth] = useState<number>(() => {
+    const s = Number(localStorage.getItem('eagleview.sideWidth') || '320')
+    return isFinite(s) && s >= 260 && s <= 560 ? s : 320
+  })
+  useEffect(() => { localStorage.setItem('eagleview.sideWidth', String(sideWidth)) }, [sideWidth])
   const exchanges = useMemo<Exchange[]>(() => buildExchanges(packets, parsedRef.current), [packets])
   const exByPacket = useMemo<Map<number, Exchange>>(() => {
     const m = new Map<number, Exchange>()
@@ -401,6 +422,18 @@ function App() {
     return s
   }
 
+  function textPreview(u: Uint8Array, off: number, len: number): string {
+    const end = Math.min(u.length, off + len)
+    const slice = u.subarray(off, end)
+    // try UTF-8 first, fallback to latin1
+    let s = ''
+    try { s = new TextDecoder('utf-8',{fatal:false}).decode(slice) } catch { s = '' }
+    if (!s) { try { s = new TextDecoder('latin1',{fatal:false}).decode(slice) } catch { s = '' } }
+    // replace non-printables except common whitespace
+    s = s.replace(/[^\x09\x0A\x0D\x20-\x7E]/g, '.')
+    return s
+  }
+
   const selectedPacket = useMemo(() => {
     if (!selectedIndex || !parsedRef.current) return null
     const p = parsedRef.current.packets[selectedIndex - 1]
@@ -556,6 +589,11 @@ function App() {
     return () => window.removeEventListener('keydown', onEsc)
   }, [])
 
+  function openPacketDetails(idx: number) {
+    setSelectedIndex(idx)
+    setSidePinned(true)
+  }
+
   return (
     <div className="app-root">
       <header className="topbar">
@@ -574,7 +612,7 @@ function App() {
         </div>
       </header>
 
-      <main className={`content ${sidePinned ? 'with-sidebar' : 'with-rail'}`}>
+      <main className={`content`} style={{ marginLeft: sidePinned ? sideWidth : 48 }}>
         <section
           className="dropzone"
           onDragOver={(e) => e.preventDefault()}
@@ -598,12 +636,18 @@ function App() {
 
         <section className="toolbar">
           <div className="toolbar-top">
-            <input
+<input
               className="input"
-              placeholder="Filter: free text or proto:tcp ip:1.2.3.4 port:53 len:>100"
+              placeholder="Start typing or pick an example…"
+              list="filter-examples"
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
             />
+            <datalist id="filter-examples">
+              {FILTER_EXAMPLES.map((ex) => (
+                <option key={ex.query} value={ex.query} label={ex.label} />
+              ))}
+            </datalist>
             <button className="chip clear" onClick={resetAll} title="Clear all filters and views">Reset</button>
             <div className="stats">
               <span>{filtered.length} packets</span>
@@ -735,10 +779,10 @@ function App() {
                       <td>{ex.timing?.rttMs!=null ? `${ex.timing.rttMs.toFixed(1)} ms` : '-'}</td>
                       <td>
                         {ex.request?.packetIds?.[0] && (
-                          <button className="mini" title="Select request packet" onClick={()=> setSelectedIndex(ex.request!.packetIds[0])}>Req</button>
+                          <button className="mini" title="Open request details" onClick={()=> openPacketDetails(ex.request!.packetIds[0])}>Req</button>
                         )}
                         {ex.response?.packetIds?.[0] && (
-                          <button className="mini" title="Select response packet" onClick={()=> setSelectedIndex(ex.response!.packetIds[0])}>Resp</button>
+                          <button className="mini" title="Open response details" onClick={()=> openPacketDetails(ex.response!.packetIds[0])}>Resp</button>
                         )}
                       </td>
                     </tr>
@@ -772,6 +816,12 @@ function App() {
                       <td>
                         <button className="mini" onClick={() => setTxnFocus(g.key)} title="View this transaction">View</button>
                         <button className="mini" onClick={() => setExpandedTxns((s)=>{const n=new Set(s); n.has(g.key)?n.delete(g.key):n.add(g.key); return n})}>{expandedTxns.has(g.key)?'Collapse':'Expand'}</button>
+                        {exchanges.find(ex=> ex.id===g.key)?.request?.packetIds?.[0] && (
+                          <button className="mini" onClick={() => openPacketDetails(exchanges.find(ex=> ex.id===g.key)!.request!.packetIds[0])} title="Open request details">Req</button>
+                        )}
+                        {exchanges.find(ex=> ex.id===g.key)?.response?.packetIds?.[0] && (
+                          <button className="mini" onClick={() => openPacketDetails(exchanges.find(ex=> ex.id===g.key)!.response!.packetIds[0])} title="Open response details">Resp</button>
+                        )}
                       </td>
                     </tr>
                   ),
@@ -797,7 +847,7 @@ function App() {
                                   const p = rowByIndex.get(idx)
                                   if (!p) return null as any
                                   return (
-                                    <tr key={p.index}>
+                                    <tr key={p.index} style={{cursor:'pointer'}} onClick={()=> openPacketDetails(p.index)}>
                                       <td>{p.index}</td>
                                       <td>{p.ts ? new Date(p.ts * 1000).toISOString().split('T')[1].replace('Z','') : '-'}</td>
                                       <td>{p.txnRole || '-'}</td>
@@ -921,10 +971,10 @@ function App() {
                       <td>{ex.timing?.rttMs!=null ? `${ex.timing.rttMs.toFixed(1)} ms` : '-'}</td>
                       <td>
                         {ex.request?.packetIds?.[0] && (
-                          <button className="mini" title="Select request packet" onClick={()=> setSelectedIndex(ex.request!.packetIds[0])}>Req</button>
+                          <button className="mini" title="Open request details" onClick={()=> openPacketDetails(ex.request!.packetIds[0])}>Req</button>
                         )}
                         {ex.response?.packetIds?.[0] && (
-                          <button className="mini" title="Select response packet" onClick={()=> setSelectedIndex(ex.response!.packetIds[0])}>Resp</button>
+                          <button className="mini" title="Open response details" onClick={()=> openPacketDetails(ex.response!.packetIds[0])}>Resp</button>
                         )}
                       </td>
                     </tr>
@@ -1033,6 +1083,14 @@ function App() {
                                   return hexPreview(pkt.data, 0, Math.min(128, pkt.data.length))
                                 })()}</pre>
                               </div>
+                              <div className="details" style={{marginTop:8}}>
+                                <div className="details-title">Text (first 128B)</div>
+                                <pre className="hex">{(()=>{
+                                  const pkt = parsedRef.current?.packets[p.index-1]
+                                  if (!pkt) return 'N/A'
+                                  return textPreview(pkt.data, 0, Math.min(128, pkt.data.length))
+                                })()}</pre>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -1067,7 +1125,7 @@ function App() {
         </div>
       )}
       {/* Left side panel (icon toggles open/close) */}
-      <LeftPanel open={sidePinned} onClose={() => setSidePinned(v=>!v)} tab={panelTab} setTab={setPanelTab} stats={stats as any} packet={selectedPacket} packetList={packets} selectedIndex={selectedIndex} onSelectIndex={(idx)=> setSelectedIndex(idx)} onProtoClick={(pr)=>toggleProto(pr)} onPortClick={(port: number)=> setFilter((prev)=> (prev? prev+ ' ' : '') + `port:${port}`)} />
+      <LeftPanel open={sidePinned} onClose={() => setSidePinned(v=>!v)} tab={panelTab} setTab={setPanelTab} stats={stats as any} packet={selectedPacket} packetList={packets} selectedIndex={selectedIndex} onSelectIndex={(idx)=> setSelectedIndex(idx)} onProtoClick={(pr)=>toggleProto(pr)} onPortClick={(port: number)=> setFilter((prev)=> (prev? prev+ ' ' : '') + `port:${port}`)} width={sideWidth} onResize={(w)=> setSideWidth(w)} />
     </div>
   )
 }
