@@ -264,13 +264,13 @@ fn build_description(bytes: &[u8], l2: &L2, l3: &L3, l4: &L4) -> String {
     // Ethernet II
     if let (Some(src_mac), Some(dst_mac)) = (&l2.src_mac, &l2.dst_mac) {
         let eth_line = if let Some(vlan) = l2.vlan {
-            format!("Ethernet II, Src: {} ({}), Dst: {} ({}), VLAN: {}",
-                src_mac, src_mac, dst_mac, dst_mac, vlan)
+            format!("Ethernet II, VLAN: {}", vlan)
         } else {
-            format!("Ethernet II, Src: {} ({}), Dst: {} ({})",
-                src_mac, src_mac, dst_mac, dst_mac)
+            "Ethernet II".to_string()
         };
         lines.push(eth_line);
+        lines.push(format!("    Source: {}", src_mac));
+        lines.push(format!("    Destination: {}", dst_mac));
     }
     
     // Layer 3
