@@ -1,5 +1,7 @@
 # EagleEyes
 
+![EagleView UI](eagleview/docs/assets/eagleview-ui.png)
+
 ## Introduction
 
 EagleEyes aims to decode net traffic and analyse it using pcap to ensure security purposes.

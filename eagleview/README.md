@@ -1,10 +1,8 @@
 # EagleView (Web UI)
 
-EagleView is a lightweight, client-side dashboard for exploring packet captures (pcap/pcapng) with protocol-aware summaries, flow/transaction grouping, and quick hex previews. It runs fully in the browser—no backend required.
-
-## UI Preview
-
 ![EagleView UI](docs/assets/eagleview-ui.png)
+
+EagleView is a lightweight, client-side dashboard for exploring packet captures (pcap/pcapng) with protocol-aware summaries, flow/transaction grouping, and quick hex previews. It runs fully in the browser—no backend required.
 
 ## Features
 - Load .pcap or .pcapng files (drag & drop or file picker)
