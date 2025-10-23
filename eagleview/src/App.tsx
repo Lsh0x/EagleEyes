@@ -4,6 +4,7 @@ import './App.css'
 import { parseCapture } from './lib/parsers'
 import { decodePacket, extractL4Payload } from './lib/decoders'
 import LeftPanel from './components/LeftPanel'
+import FilterChatbot from './components/FilterChatbot'
 import type { Exchange } from './lib/matchers'
 import { buildExchanges, groupExchangesByFlow } from './lib/matchers'
 
@@ -52,6 +53,7 @@ export type PacketRow = {
   tcpFlags?: number
   dnsId?: number
   arpOp?: number
+  l3Proto?: 'IPv4' | 'IPv6' | 'ARP'
 }
 
 function bytesToHuman(n: number) {
@@ -212,6 +214,7 @@ function App() {
             tcpFlags: dec?.meta?.tcp?.flags,
             dnsId: dec?.meta?.dns?.id,
             arpOp: dec?.meta?.arp?.op,
+            l3Proto: dec.l3?.proto,
           }
         }),
       )
@@ -247,8 +250,7 @@ function App() {
       arr = arr.filter((p) => selectedProtos.has((p.proto || '').toUpperCase()) || selectedProtos.has((p.app || '').toUpperCase()))
     }
     if (filter.trim()) {
-      const tokens = filter.trim().split(/\s+/)
-      arr = arr.filter((p) => tokens.every((t) => matchToken(p, t)))
+      arr = arr.filter((p) => matchesPacketFilter(p, filter))
     }
     // sorting for list view
     const withSortHelper = arr.map((p) => ({
@@ -284,8 +286,7 @@ function App() {
     else arr = arr.filter((p) => p.src === ipFocus || p.dst === ipFocus)
     if (selectedProtos.size > 0) arr = arr.filter((p) => selectedProtos.has((p.proto || '').toUpperCase()))
     if (filter.trim()) {
-      const tokens = filter.trim().split(/\s+/)
-      arr = arr.filter((p) => tokens.every((t) => matchToken(p, t)))
+      arr = arr.filter((p) => matchesPacketFilter(p, filter))
     }
     const map = new Map<string, { peer: string; count: number; bytes: number; first: number; last: number; protos: Set<string>; sample: PacketRow[] }>()
     for (const p of arr) {
@@ -510,10 +511,42 @@ function App() {
     return {}
   }
 
+  function parseFilterOrGroups(expr: string): string[][] {
+    const s = (expr || '').trim()
+    if (!s) return []
+    // Split by OR (||, |, or "or")
+    const parts = s.split(/\s*(?:\|\||\||\bor\b)\s*/i).filter(Boolean)
+    return parts.map(p => {
+      // Within each OR group, also split by AND (&&, "and") as optional
+      // but we only split by space if no AND present
+      const hasSeparateAnd = /&&|\band\b/i.test(p)
+      if (hasSeparateAnd) {
+        const andParts = p.split(/\s*(?:&&|\band\b)\s*/i).filter(Boolean)
+        return andParts.flatMap(ap => ap.trim().split(/\s+/).filter(Boolean))
+      } else {
+        return p.trim().split(/\s+/).filter(Boolean)
+      }
+    })
+  }
+  function matchesPacketFilter(p: PacketRow, expr: string): boolean {
+    const groups = parseFilterOrGroups(expr)
+    if (groups.length === 0) return true
+    return groups.some(tokens => tokens.every(t => matchToken(p, t)))
+  }
   function matchToken(p: PacketRow, t: string): boolean {
-    const [k, vRaw] = t.includes(':') ? (t.split(':', 2) as [string, string]) : ['text', t]
-    const v = vRaw.toLowerCase()
-    switch (k.toLowerCase()) {
+    const s = (t || '').trim().toLowerCase()
+    // Handle bare TCP flag tokens like "tcp.syn"
+    if (s === 'tcp.syn') return !!(p.tcpFlags && (p.tcpFlags & 0x02))
+    if (s === 'tcp.ack') return !!(p.tcpFlags && (p.tcpFlags & 0x10))
+    if (s === 'tcp.fin') return !!(p.tcpFlags && (p.tcpFlags & 0x01))
+    if (s === 'tcp.rst') return !!(p.tcpFlags && (p.tcpFlags & 0x04))
+    // Handle bare L3 protocol tokens
+    if (s === 'ipv4') return p.l3Proto === 'IPv4'
+    if (s === 'ipv6') return p.l3Proto === 'IPv6'
+
+    const [k, vRaw] = s.includes(':') ? (s.split(':', 2) as [string, string]) : ['text', s]
+    const v = vRaw
+    switch (k) {
       case 'proto':
         return (p.proto || '').toLowerCase().includes(v)
       case 'ip':
@@ -1212,6 +1245,16 @@ function App() {
       )}
       {/* Left side panel (icon toggles open/close) */}
       <LeftPanel open={sidePinned} onClose={() => setSidePinned(v=>!v)} tab={panelTab} setTab={setPanelTab} stats={stats as any} packet={selectedPacket} packetList={packets} selectedIndex={selectedIndex} onSelectIndex={(idx)=> setSelectedIndex(idx)} onProtoClick={(pr)=>toggleProto(pr)} onPortClick={(port: number, proto: 'TCP'|'UDP')=> setFilter((prev)=> (prev? prev+ ' ' : '') + (proto?`proto:${proto.toLowerCase()} `:'') + `port:${port}`)} width={sideWidth} onResize={(w)=> setSideWidth(w)} />
+      {/* Floating chatbot */}
+      <FilterChatbot onApplyFilter={(f)=> setFilter(f)} contextHint={(() => {
+        const parts:string[] = []
+        if (ipFocus) parts.push(`focus ip=${ipFocus} role=${ipFocusRole}`)
+        if (macFocus) parts.push(`focus mac=${macFocus} role=${macFocusRole}`)
+        if (selectedProtos.size) parts.push(`protos=${Array.from(selectedProtos).join(',')}`)
+        if (filter) parts.push(`current filter="${filter}"`)
+        if (packets.length) parts.push(`${packets.length} packets loaded`)
+        return parts.join(' · ')
+      })()} />
     </div>
   )
 }
