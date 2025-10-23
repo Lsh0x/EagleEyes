@@ -5,22 +5,55 @@ export type Decoded = {
     srcMac?: string
     dstMac?: string
     etherType?: number
+    etherTypeName?: string
     vlan?: number
   }
   l3?: {
     proto?: 'IPv4' | 'IPv6' | 'ARP'
     src?: string
     dst?: string
+    // IPv4 specific
+    version?: number
+    headerLen?: number
+    tos?: number
+    totalLen?: number
+    identification?: number
+    flags?: number
+    fragmentOffset?: number
+    ttl?: number
+    protocol?: number
+    checksum?: number
+    // IPv6 specific
+    trafficClass?: number
+    flowLabel?: number
+    payloadLen?: number
+    nextHeader?: number
+    hopLimit?: number
   }
   l4?: {
     proto?: 'TCP' | 'UDP' | 'ICMPv4' | 'ICMPv6'
     srcPort?: number
     dstPort?: number
+    // TCP specific
     tcpFlags?: string
+    tcpSeq?: number
+    tcpAck?: number
+    tcpWindow?: number
+    tcpChecksum?: number
+    tcpUrgent?: number
+    tcpDataOffset?: number
+    // UDP specific
+    udpLen?: number
+    udpChecksum?: number
+    // ICMP specific
+    icmpType?: number
+    icmpCode?: number
+    icmpChecksum?: number
   }
   summary: string
   protocolTag: string
   appTag?: string
+  description?: string
   meta?: {
     arp?: { op?: number; spa?: string; tpa?: string }
     dns?: { id: number; qr: boolean; name?: string; qtype?: number; qtypeName?: string }

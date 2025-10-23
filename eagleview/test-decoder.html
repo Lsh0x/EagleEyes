@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Packet Decoder Test</title>
+    <style>
+        body { font-family: monospace; padding: 20px; }
+        pre { background: #f5f5f5; padding: 10px; border-radius: 4px; }
+        .section { margin: 20px 0; }
+        h2 { color: #333; }
+    </style>
+</head>
+<body>
+    <h1>Packet Decoder Test - All Headers</h1>
+    
+    <div class="section">
+        <h2>Sample TCP Packet (IPv4)</h2>
+        <pre id="tcp-result">Loading...</pre>
+    </div>
+    
+    <div class="section">
+        <h2>Sample UDP Packet (IPv4)</h2>
+        <pre id="udp-result">Loading...</pre>
+    </div>
+    
+    <div class="section">
+        <h2>Sample ICMP Packet (IPv4)</h2>
+        <pre id="icmp-result">Loading...</pre>
+    </div>
+
+    <script type="module">
+        import { decode_packet } from './src/lib/../../../crates/protocol-wasm/pkg/protocol_wasm.js';
+
+        // Sample TCP packet (Ethernet + IPv4 + TCP SYN)
+        const tcpPacket = new Uint8Array([
+            // Ethernet header (14 bytes)
+            0x00, 0x11, 0x22, 0x33, 0x44, 0x55, // dst MAC
+            0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, // src MAC
+            0x08, 0x00,                         // EtherType: IPv4
+            
+            // IPv4 header (20 bytes)
+            0x45,       // Version (4) + IHL (5)
+            0x00,       // ToS
+            0x00, 0x3c, // Total Length: 60
+            0x12, 0x34, // Identification
+            0x40, 0x00, // Flags (DF) + Fragment Offset
+            0x40,       // TTL: 64
+            0x06,       // Protocol: TCP
+            0x00, 0x00, // Checksum (placeholder)
+            0xc0, 0xa8, 0x01, 0x64, // Source IP: 192.168.1.100
+            0x08, 0x08, 0x08, 0x08, // Dest IP: 8.8.8.8
+            
+            // TCP header (20 bytes)
+            0x04, 0xd2, // Source port: 1234
+            0x00, 0x50, // Dest port: 80 (HTTP)
+            0x00, 0x00, 0x00, 0x01, // Seq number: 1
+            0x00, 0x00, 0x00, 0x00, // Ack number: 0
+            0x50,       // Data offset (5) + Reserved
+            0x02,       // Flags: SYN
+            0x72, 0x10, // Window: 29200
+            0x00, 0x00, // Checksum (placeholder)
+            0x00, 0x00, // Urgent pointer
+        ]);
+
+        // Sample UDP packet (Ethernet + IPv4 + UDP)
+        const udpPacket = new Uint8Array([
+            // Ethernet header
+            0x00, 0x11, 0x22, 0x33, 0x44, 0x55,
+            0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
+            0x08, 0x00,
+            
+            // IPv4 header
+            0x45, 0x00, 0x00, 0x2c,
+            0x12, 0x34, 0x00, 0x00,
+            0x40, 0x11, 0x00, 0x00,
+            0xc0, 0xa8, 0x01, 0x64,
+            0x08, 0x08, 0x04, 0x04,
+            
+            // UDP header (8 bytes)
+            0x04, 0xd2, // Source port: 1234
+            0x00, 0x35, // Dest port: 53 (DNS)
+            0x00, 0x14, // Length: 20
+            0x00, 0x00, // Checksum
+        ]);
+
+        // Sample ICMP packet (Ethernet + IPv4 + ICMP)
+        const icmpPacket = new Uint8Array([
+            // Ethernet header
+            0x00, 0x11, 0x22, 0x33, 0x44, 0x55,
+            0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
+            0x08, 0x00,
+            
+            // IPv4 header
+            0x45, 0x00, 0x00, 0x54,
+            0x12, 0x34, 0x00, 0x00,
+            0x40, 0x01, 0x00, 0x00,
+            0xc0, 0xa8, 0x01, 0x64,
+            0x08, 0x08, 0x08, 0x08,
+            
+            // ICMP header (8 bytes)
+            0x08,       // Type: Echo Request
+            0x00,       // Code: 0
+            0x00, 0x00, // Checksum
+            0x00, 0x01, // Identifier
+            0x00, 0x01, // Sequence
+        ]);
+
+        try {
+            const tcpResult = decode_packet(tcpPacket);
+            document.getElementById('tcp-result').textContent = JSON.stringify(tcpResult, null, 2);
+            
+            const udpResult = decode_packet(udpPacket);
+            document.getElementById('udp-result').textContent = JSON.stringify(udpResult, null, 2);
+            
+            const icmpResult = decode_packet(icmpPacket);
+            document.getElementById('icmp-result').textContent = JSON.stringify(icmpResult, null, 2);
+        } catch (e) {
+            console.error('Error:', e);
+            document.getElementById('tcp-result').textContent = 'Error: ' + e.message;
+        }
+    </script>
+</body>
+</html>

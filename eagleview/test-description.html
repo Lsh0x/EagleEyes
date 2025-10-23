@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Packet Description Test</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .packet {
+            background: white;
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .packet h2 {
+            margin-top: 0;
+            color: #333;
+            font-size: 16px;
+        }
+        .description {
+            background: #f5f5f5;
+            padding: 15px;
+            border-left: 3px solid #007acc;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        .description-line {
+            margin: 2px 0;
+        }
+        .error {
+            color: red;
+            background: #fee;
+            padding: 10px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Packet Descriptions - Wireshark Style</h1>
+    
+    <div id="packets"></div>
+
+    <script type="module">
+        import { decode_packet } from '../crates/protocol-wasm/pkg/protocol_wasm.js';
+
+        // Sample DNS query packet
+        const dnsPacket = new Uint8Array([
+            // Ethernet header
+            0x02, 0x00, 0x00, 0x00, 0x00, 0x1a,  // dst MAC
+            0x02, 0x00, 0x00, 0x00, 0x00, 0x0f,  // src MAC (matches your example)
+            0x08, 0x00,                          // EtherType: IPv4
+            
+            // IPv4 header (20 bytes)
+            0x45, 0x00, 0x00, 0x42,              // Version, IHL, ToS, Total Length (66)
+            0x12, 0x34, 0x40, 0x00,              // ID, Flags (DF), Fragment offset
+            0x40, 0x11, 0x00, 0x00,              // TTL (64), Protocol (UDP=17), Checksum
+            0x0a, 0x00, 0x00, 0x1a,              // Source IP: 10.0.0.26
+            0x08, 0x08, 0x08, 0x08,              // Dest IP: 8.8.8.8
+            
+            // UDP header (8 bytes)
+            0xce, 0xf8,                          // Source port: 53000
+            0x00, 0x35,                          // Dest port: 53 (DNS)
+            0x00, 0x2e,                          // Length: 46
+            0x00, 0x00,                          // Checksum
+            
+            // DNS payload (38 bytes - minimal query)
+            0x00, 0x01,                          // Transaction ID
+            0x01, 0x00,                          // Flags: standard query
+            0x00, 0x01,                          // Questions: 1
+            0x00, 0x00,                          // Answer RRs: 0
+            0x00, 0x00,                          // Authority RRs: 0
+            0x00, 0x00,                          // Additional RRs: 0
+            // Query: example.com
+            0x07, 0x65, 0x78, 0x61, 0x6d, 0x70, 0x6c, 0x65,  // "example"
+            0x03, 0x63, 0x6f, 0x6d,                          // "com"
+            0x00,                                            // null terminator
+            0x00, 0x01,                          // Type: A
+            0x00, 0x01,                          // Class: IN
+        ]);
+
+        // Sample TCP packet
+        const tcpPacket = new Uint8Array([
+            // Ethernet
+            0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+            0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
+            0x08, 0x00,
+            
+            // IPv4
+            0x45, 0x00, 0x00, 0x3c,
+            0x12, 0x34, 0x40, 0x00,
+            0x40, 0x06, 0x00, 0x00,
+            0xc0, 0xa8, 0x01, 0x64,
+            0x5f, 0xb7, 0xf5, 0x4e,
+            
+            // TCP (SYN)
+            0xc3, 0x50,                          // Src port: 50000
+            0x00, 0x50,                          // Dst port: 80 (HTTP)
+            0x00, 0x00, 0x00, 0x01,              // Seq
+            0x00, 0x00, 0x00, 0x00,              // Ack
+            0x50, 0x02,                          // Data offset, flags (SYN)
+            0x72, 0x10,                          // Window
+            0x00, 0x00,                          // Checksum
+            0x00, 0x00,                          // Urgent
+        ]);
+
+        // Sample ICMP packet
+        const icmpPacket = new Uint8Array([
+            // Ethernet
+            0x00, 0x11, 0x22, 0x33, 0x44, 0x55,
+            0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
+            0x08, 0x00,
+            
+            // IPv4
+            0x45, 0x00, 0x00, 0x54,
+            0xab, 0xcd, 0x00, 0x00,
+            0x40, 0x01, 0x00, 0x00,
+            0xc0, 0xa8, 0x01, 0x0a,
+            0x08, 0x08, 0x08, 0x08,
+            
+            // ICMP Echo Request
+            0x08, 0x00,                          // Type: 8 (Echo Request)
+            0x00, 0x00,                          // Checksum
+            0x12, 0x34,                          // Identifier
+            0x00, 0x01,                          // Sequence
+        ]);
+
+        const packets = [
+            { name: 'DNS Query (like your example)', data: dnsPacket },
+            { name: 'TCP SYN Packet', data: tcpPacket },
+            { name: 'ICMP Echo Request', data: icmpPacket },
+        ];
+
+        const container = document.getElementById('packets');
+
+        for (const packet of packets) {
+            try {
+                const result = decode_packet(packet.data);
+                
+                const div = document.createElement('div');
+                div.className = 'packet';
+                
+                const title = document.createElement('h2');
+                title.textContent = packet.name;
+                div.appendChild(title);
+                
+                if (result.description) {
+                    const desc = document.createElement('div');
+                    desc.className = 'description';
+                    desc.textContent = result.description;
+                    div.appendChild(desc);
+                } else {
+                    const error = document.createElement('div');
+                    error.className = 'error';
+                    error.textContent = 'No description available';
+                    div.appendChild(error);
+                }
+                
+                container.appendChild(div);
+            } catch (e) {
+                const div = document.createElement('div');
+                div.className = 'packet';
+                
+                const title = document.createElement('h2');
+                title.textContent = packet.name;
+                div.appendChild(title);
+                
+                const error = document.createElement('div');
+                error.className = 'error';
+                error.textContent = 'Error: ' + e.message;
+                div.appendChild(error);
+                
+                container.appendChild(div);
+            }
+        }
+    </script>
+</body>
+</html>
