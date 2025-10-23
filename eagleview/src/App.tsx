@@ -78,6 +78,11 @@ function App() {
   const [showExchanges, setShowExchanges] = useState<boolean>(false)
   const [collapsePairs, setCollapsePairs] = useState<boolean>(false)
   const [sidePinned, setSidePinned] = useState<boolean>(false)
+  const [sideWidth, setSideWidth] = useState<number>(() => {
+    const s = Number(localStorage.getItem('eagleview.sideWidth') || '320')
+    return isFinite(s) && s >= 260 && s <= 560 ? s : 320
+  })
+  useEffect(() => { localStorage.setItem('eagleview.sideWidth', String(sideWidth)) }, [sideWidth])
   const exchanges = useMemo<Exchange[]>(() => buildExchanges(packets, parsedRef.current), [packets])
   const exByPacket = useMemo<Map<number, Exchange>>(() => {
     const m = new Map<number, Exchange>()
@@ -607,7 +612,7 @@ function App() {
         </div>
       </header>
 
-      <main className={`content ${sidePinned ? 'with-sidebar' : 'with-rail'}`}>
+      <main className={`content`} style={{ marginLeft: sidePinned ? sideWidth : 48 }}>
         <section
           className="dropzone"
           onDragOver={(e) => e.preventDefault()}
@@ -1120,7 +1125,7 @@ function App() {
         </div>
       )}
       {/* Left side panel (icon toggles open/close) */}
-      <LeftPanel open={sidePinned} onClose={() => setSidePinned(v=>!v)} tab={panelTab} setTab={setPanelTab} stats={stats as any} packet={selectedPacket} packetList={packets} selectedIndex={selectedIndex} onSelectIndex={(idx)=> setSelectedIndex(idx)} onProtoClick={(pr)=>toggleProto(pr)} onPortClick={(port: number)=> setFilter((prev)=> (prev? prev+ ' ' : '') + `port:${port}`)} />
+      <LeftPanel open={sidePinned} onClose={() => setSidePinned(v=>!v)} tab={panelTab} setTab={setPanelTab} stats={stats as any} packet={selectedPacket} packetList={packets} selectedIndex={selectedIndex} onSelectIndex={(idx)=> setSelectedIndex(idx)} onProtoClick={(pr)=>toggleProto(pr)} onPortClick={(port: number)=> setFilter((prev)=> (prev? prev+ ' ' : '') + `port:${port}`)} width={sideWidth} onResize={(w)=> setSideWidth(w)} />
     </div>
   )
 }
