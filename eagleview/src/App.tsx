@@ -14,13 +14,16 @@ const FILTER_EXAMPLES: { label: string; query: string }[] = [
   { label: 'UDP DNS to 8.8.8.8:53, small payloads', query: 'proto:udp ip:8.8.8.8 port:53 len:<200' },
   { label: 'DNS flow on 10.10.10.20 with id=53321, len<180', query: 'proto:dns ip:10.10.10.20 dns.id:53321 len:<180' },
   { label: 'ARP who-has (requests) around 192.168.1.1', query: 'proto:arp arp.op:request ip:192.168.1.1' },
-  { label: 'HTTP-ish traffic (80/8080) to 10.10.10.20, len>300', query: 'proto:tcp port:80 port:8080 ip:10.10.10.20 len:>300' },
+  { label: 'HTTP-ish traffic (80/8080) to 10.10.10.20, len>300', query: 'proto:tcp port:80 port:8080 ip:10.10.10.10 len:>300' },
   { label: 'TCP teardown (FIN/RST) with 192.168.89.2, len>=60', query: 'proto:tcp ip:192.168.89.2 tcp.fin tcp.rst len:>=60' },
   { label: 'NTP-like: UDP 123 from 10.10.10.20 → 10.10.10.10, len<180', query: 'proto:udp src:10.10.10.20 dst:10.10.10.10 port:123 len:<180' },
   { label: 'SSH attempts: TCP 22 from 10.10.10.10 → 10.10.10.20, len<200', query: 'proto:tcp src:10.10.10.10 dst:10.10.10.20 port:22 len:<200' },
   { label: 'ACK-heavy TCP with 192.168.88.1 on :49156, len>60', query: 'proto:tcp ip:192.168.88.1 port:49156 tcp.ack len:>60' },
   { label: 'DNS on 192.168.89.2 with txn id=1, len<120', query: 'proto:dns ip:192.168.89.2 dns.id:1 len:<120' },
   { label: 'Any traffic with peer 8.8.8.8, mixed', query: 'ip:8.8.8.8 proto:tcp proto:udp len:>60' },
+  { label: 'Traffic from MAC address 02:00:00:00:00:1a', query: 'srcmac:02:00:00:00:00:1a' },
+  { label: 'Traffic to MAC address aa:bb:cc:dd:ee:ff', query: 'dstmac:aa:bb:cc:dd:ee:ff' },
+  { label: 'Any traffic with MAC aa:bb:cc', query: 'mac:aa:bb:cc' },
 ]
 
 // Safety limits to avoid browser crashes with very large captures
@@ -38,6 +41,8 @@ export type PacketRow = {
   dst?: string
   srcPort?: number
   dstPort?: number
+  srcMac?: string
+  dstMac?: string
   proto?: string
   app?: string
   info?: string
@@ -67,6 +72,8 @@ function App() {
   const [flowKey, setFlowKey] = useState<string | null>(null)
   const [ipFocus, setIpFocus] = useState<string | null>(null)
   const [ipFocusRole, setIpFocusRole] = useState<'src' | 'dst' | 'both'>('both')
+  const [macFocus, setMacFocus] = useState<string | null>(null)
+  const [macFocusRole, setMacFocusRole] = useState<'src' | 'dst' | 'both'>('both')
   const [sortBy, setSortBy] = useState<'time' | 'peer' | 'proto'>('time')
   const [peerFocus, setPeerFocus] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<'list' | 'grouped'>('list')
@@ -128,6 +135,8 @@ function App() {
     setFlowKey(null)
     setIpFocus(null)
     setPeerFocus(null)
+    setMacFocus(null)
+    setMacFocusRole('both')
     setViewMode('list')
     setTxnGrouped(false)
     setTxnFocus(null)
@@ -175,6 +184,8 @@ function App() {
           const dec = decodePacket(p)
           const src = dec.l3?.src ?? dec.l2?.srcMac
           const dst = dec.l3?.dst ?? dec.l2?.dstMac
+          const srcMac = dec.l2?.srcMac
+          const dstMac = dec.l2?.dstMac
           const proto = dec.protocolTag
           const srcPort = dec.l4?.srcPort
           const dstPort = dec.l4?.dstPort
@@ -188,6 +199,8 @@ function App() {
             ifIndex: p.ifIndex,
             src,
             dst,
+            srcMac,
+            dstMac,
             srcPort,
             dstPort,
             proto,
@@ -225,6 +238,11 @@ function App() {
         else arr = arr.filter((p) => (p.src === ipFocus && p.dst === peerFocus) || (p.dst === ipFocus && p.src === peerFocus))
       }
     }
+    if (macFocus) {
+      if (macFocusRole === 'src') arr = arr.filter((p) => (p.srcMac || '').toLowerCase() === macFocus.toLowerCase())
+      else if (macFocusRole === 'dst') arr = arr.filter((p) => (p.dstMac || '').toLowerCase() === macFocus.toLowerCase())
+      else arr = arr.filter((p) => (p.srcMac || '').toLowerCase() === macFocus.toLowerCase() || (p.dstMac || '').toLowerCase() === macFocus.toLowerCase())
+    }
     if (selectedProtos.size > 0) {
       arr = arr.filter((p) => selectedProtos.has((p.proto || '').toUpperCase()) || selectedProtos.has((p.app || '').toUpperCase()))
     }
@@ -254,7 +272,7 @@ function App() {
       return (a.p.ts || 0) - (b.p.ts || 0)
     })
     return withSortHelper.map((x) => x.p)
-  }, [packets, filter, selectedProtos, flowKey, ipFocus, sortBy, peerFocus, ipFocusRole])
+  }, [packets, filter, selectedProtos, flowKey, ipFocus, sortBy, peerFocus, ipFocusRole, macFocus, macFocusRole])
 
   const groups = useMemo(() => {
     if (!ipFocus) return [] as { peer: string; count: number; bytes: number; first: number; last: number; protos: string[]; sample: PacketRow[] }[]
@@ -332,7 +350,7 @@ function App() {
 
   // Stats for side panel (based on current filtered rows)
   const stats = useMemo(() => {
-    const arr = packets
+    const arr = filtered
     const totalPackets = arr.length
     const totalBytes = arr.reduce((a, p) => a + (p.capturedLen || 0), 0)
     const times = arr.map(p => p.ts || 0).filter(Boolean)
@@ -388,7 +406,7 @@ function App() {
     const uniquePeers = byPeer.size
     const focus = ipFocus ? { inCount: focusIn, outCount: focusOut, inBytes: focusInBytes, outBytes: focusOutBytes } : null
     return { totalPackets, totalBytes, first, last, duration, pps, bps, uniquePeers, protoList, topPeers, topTCP, topUDP, focus }
-  }, [packets])
+  }, [filtered, ipFocus])
 
   const [streamKey, setStreamKey] = useState<string | null>(null)
   const streamPackets = useMemo(() => {
@@ -508,6 +526,14 @@ function App() {
         return (p.src || '').toLowerCase().includes(v)
       case 'dst':
         return (p.dst || '').toLowerCase().includes(v)
+      case 'mac':
+        return (
+          (p.srcMac || '').toLowerCase().includes(v) || (p.dstMac || '').toLowerCase().includes(v)
+        )
+      case 'srcmac':
+        return (p.srcMac || '').toLowerCase().includes(v)
+      case 'dstmac':
+        return (p.dstMac || '').toLowerCase().includes(v)
       case 'port': {
         const vi = parseInt(v, 10)
         return isNaN(vi) ? false : (p.info || '').match(/\b(\d+)\s*→\s*(\d+)/)?.some(n => parseInt(n,10)===vi) || (p.info||'').includes(` ${vi} `)
@@ -691,6 +717,17 @@ function App() {
                     Peer: {peerFocus} ×
                   </button>
                 )}
+              </>
+            )}
+            {macFocus && (
+              <>
+                <button className="chip active" onClick={() => setMacFocus(null)} title="Clear MAC focus">
+                  MAC: {macFocus} ({macFocusRole}) ×
+                </button>
+                <span className="hint">Role:</span>
+                <button className={`chip ${macFocusRole==='src'?'active':''}`} onClick={() => setMacFocusRole('src')} title="Only packets where this MAC is Source">Src</button>
+                <button className={`chip ${macFocusRole==='dst'?'active':''}`} onClick={() => setMacFocusRole('dst')} title="Only packets where this MAC is Destination">Dst</button>
+                <button className={`chip ${macFocusRole==='both'?'active':''}`} onClick={() => setMacFocusRole('both')} title="Packets where this MAC is Source or Destination">Both</button>
               </>
             )}
             {availableProtos.length > 0 && selectedProtos.size > 0 && (
@@ -992,6 +1029,8 @@ function App() {
                   <th>Time</th>
                   <th>Source</th>
                   <th>Destination</th>
+                  <th>Src MAC</th>
+                  <th>Dst MAC</th>
                   <th>Protocol</th>
                   <th>Length</th>
                   <th>Info</th>
@@ -1027,6 +1066,20 @@ function App() {
                           </button>
                         ) : '-'}
                       </td>
+                      <td className="mono" style={{fontSize: '0.85em', color: '#666'}}>
+                        {p.srcMac ? (
+                          <button className="link" onClick={(e) => { e.stopPropagation(); setMacFocus(p.srcMac!); setMacFocusRole('src') }} title="Focus on this MAC as Source">
+                            {p.srcMac}
+                          </button>
+                        ) : '-'}
+                      </td>
+                      <td className="mono" style={{fontSize: '0.85em', color: '#666'}}>
+                        {p.dstMac ? (
+                          <button className="link" onClick={(e) => { e.stopPropagation(); setMacFocus(p.dstMac!); setMacFocusRole('dst') }} title="Focus on this MAC as Destination">
+                            {p.dstMac}
+                          </button>
+                        ) : '-'}
+                      </td>
                       <td>
                         <span
                           className={'badge clickable proto-' + ((p.proto||'').toLowerCase())}
@@ -1054,7 +1107,7 @@ function App() {
                   ),
                   selectedIndex === p.index ? (
                     <tr key={`exp-${p.index}`} className="row-expansion">
-                      <td colSpan={7}>
+                      <td colSpan={9}>
                         <div className="subtable">
                           <div className="subtable-title" style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
                             <span>Packet {p.index} details</span>
@@ -1068,11 +1121,44 @@ function App() {
                                 {p.app && (<div style={{marginTop:6}}>App: <span className={'badge proto-' + p.app.toLowerCase()}>{p.app}</span></div>)}
                               </div>
                               <div className="details" style={{marginTop:8}}>
+                                <div className="details-title">Key fields</div>
+                                <div>Src IP: {p.src || '-'}</div>
+                                <div>Dst IP: {p.dst || '-'}</div>
+                                <div>Src MAC: {p.srcMac || '-'}</div>
+                                <div>Dst MAC: {p.dstMac || '-'}</div>
+                              </div>
+                              <div className="details" style={{marginTop:8}}>
                                 <div className="details-title">Layers</div>
-                                <div>L2: {p.src && p.dst ? '' : 'Ethernet'} {p.src ? '' : ''}</div>
                                 <div>L3: {(p.proto||'').toUpperCase().startsWith('IP') ? p.proto : 'IP'} {p.src} → {p.dst}</div>
+                                <div>L2: {p.src && p.dst ? '' : 'Ethernet'}</div>
                                 <div>L4: {p.srcPort!=null || p.dstPort!=null ? `${p.srcPort??''} → ${p.dstPort??''}` : '-'}</div>
                               </div>
+                              {(() => {
+                                const pkt = parsedRef.current?.packets[p.index - 1]
+                                if (!pkt) return null
+                                const dec = decodePacket(pkt) as import('./lib/decoders').Decoded
+                                const renderKV = (obj: Record<string, unknown>) =>
+                                  Object.entries(obj || {})
+                                    .filter(([, v]) => v !== undefined && v !== null && v !== '')
+                                    .map(([k, v]) => (
+                                      <div key={k}>
+                                        <span>{k}</span>: <span>{String(v)}</span>
+                                      </div>
+                                    ))
+                                return (
+                                  <div className="details" style={{ marginTop: 8 }}>
+                                    <div className="details-title">Headers</div>
+                                    <div>
+                                      <div><strong>L2</strong></div>
+                                      <div className="mono">{renderKV((dec.l2 || {}) as Record<string, unknown>)}</div>
+                                      <div style={{ marginTop: 6 }}><strong>L3</strong></div>
+                                      <div className="mono">{renderKV((dec.l3 || {}) as Record<string, unknown>)}</div>
+                                      <div style={{ marginTop: 6 }}><strong>L4</strong></div>
+                                      <div className="mono">{renderKV((dec.l4 || {}) as Record<string, unknown>)}</div>
+                                    </div>
+                                  </div>
+                                )
+                              })()}
                             </div>
                             <div>
                               <div className="details">
@@ -1125,7 +1211,7 @@ function App() {
         </div>
       )}
       {/* Left side panel (icon toggles open/close) */}
-      <LeftPanel open={sidePinned} onClose={() => setSidePinned(v=>!v)} tab={panelTab} setTab={setPanelTab} stats={stats as any} packet={selectedPacket} packetList={packets} selectedIndex={selectedIndex} onSelectIndex={(idx)=> setSelectedIndex(idx)} onProtoClick={(pr)=>toggleProto(pr)} onPortClick={(port: number)=> setFilter((prev)=> (prev? prev+ ' ' : '') + `port:${port}`)} width={sideWidth} onResize={(w)=> setSideWidth(w)} />
+      <LeftPanel open={sidePinned} onClose={() => setSidePinned(v=>!v)} tab={panelTab} setTab={setPanelTab} stats={stats as any} packet={selectedPacket} packetList={packets} selectedIndex={selectedIndex} onSelectIndex={(idx)=> setSelectedIndex(idx)} onProtoClick={(pr)=>toggleProto(pr)} onPortClick={(port: number, proto: 'TCP'|'UDP')=> setFilter((prev)=> (prev? prev+ ' ' : '') + (proto?`proto:${proto.toLowerCase()} `:'') + `port:${port}`)} width={sideWidth} onResize={(w)=> setSideWidth(w)} />
     </div>
   )
 }

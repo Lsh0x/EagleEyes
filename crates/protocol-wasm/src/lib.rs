@@ -7,6 +7,7 @@ pub struct L2 {
     pub src_mac: Option<String>,
     pub dst_mac: Option<String>,
     pub ether_type: Option<u16>,
+    pub ether_type_name: Option<String>,
     pub vlan: Option<u16>,
 }
 
@@ -16,6 +17,23 @@ pub struct L3 {
     pub proto: Option<String>,
     pub src: Option<String>,
     pub dst: Option<String>,
+    // IPv4 specific fields
+    pub version: Option<u8>,
+    pub header_len: Option<u8>,
+    pub tos: Option<u8>,
+    pub total_len: Option<u16>,
+    pub identification: Option<u16>,
+    pub flags: Option<u8>,
+    pub fragment_offset: Option<u16>,
+    pub ttl: Option<u8>,
+    pub protocol: Option<u8>,
+    pub checksum: Option<u16>,
+    // IPv6 specific fields
+    pub traffic_class: Option<u8>,
+    pub flow_label: Option<u32>,
+    pub payload_len: Option<u16>,
+    pub next_header: Option<u8>,
+    pub hop_limit: Option<u8>,
 }
 
 #[derive(Serialize, Default)]
@@ -24,7 +42,21 @@ pub struct L4 {
     pub proto: Option<String>,
     pub src_port: Option<u16>,
     pub dst_port: Option<u16>,
+    // TCP specific fields
     pub tcp_flags: Option<String>,
+    pub tcp_seq: Option<u32>,
+    pub tcp_ack: Option<u32>,
+    pub tcp_window: Option<u16>,
+    pub tcp_checksum: Option<u16>,
+    pub tcp_urgent: Option<u16>,
+    pub tcp_data_offset: Option<u8>,
+    // UDP specific fields
+    pub udp_len: Option<u16>,
+    pub udp_checksum: Option<u16>,
+    // ICMP specific fields
+    pub icmp_type: Option<u8>,
+    pub icmp_code: Option<u8>,
+    pub icmp_checksum: Option<u16>,
 }
 
 #[derive(Serialize, Default)]
@@ -36,6 +68,7 @@ pub struct Decoded {
     pub summary: String,
     pub protocol_tag: String,
     pub app_tag: Option<String>,
+    pub description: Option<String>,
 }
 
 fn mac_to_str(m: &[u8]) -> String {
@@ -43,6 +76,28 @@ fn mac_to_str(m: &[u8]) -> String {
 }
 fn ipv4_to_str(b: &[u8]) -> String {
     format!("{}.{}.{}.{}", b[0], b[1], b[2], b[3])
+}
+
+fn ether_type_as_str(ether_type: u16) -> &'static str {
+    match ether_type {
+        0x0200 => "PUP",
+        0x0500 => "SPRITE",
+        0x0800 => "IPv4",
+        0x0806 => "ARP",
+        0x8035 => "REVARP",
+        0x809B => "AT",
+        0x80F3 => "AARP",
+        0x8100 => "VLAN",
+        0x8137 => "IPX",
+        0x86dd => "IPv6",
+        0x88cc => "LLDP",
+        0x8847 => "MPLS_U",
+        0x8848 => "MPLS_M",
+        0x8863 => "PPPoE-Discovery",
+        0x8864 => "PPPoE-Session",
+        0x9000 => "LOOPBACK",
+        _ => "UNKNOWN",
+    }
 }
 
 #[wasm_bindgen]
@@ -70,16 +125,41 @@ pub fn decode_packet(bytes: &[u8]) -> Result<JsValue, JsValue> {
             off += 4;
         }
         l2.ether_type = Some(ether_type);
+        l2.ether_type_name = Some(ether_type_as_str(ether_type).to_string());
 
         // L3
         if ether_type == ethernet::PROTO::IPV4 && bytes.len() >= off + 20 {
-            // IPv4 header length
+            // IPv4 header
+            let version = (bytes[off] & 0xf0) >> 4;
             let ihl = (bytes[off] & 0x0f) as usize * 4;
             if ihl >= 20 && bytes.len() >= off + ihl {
                 let proto = bytes[off + 9];
                 let src = ipv4_to_str(&bytes[off + 12..off + 16]);
                 let dst = ipv4_to_str(&bytes[off + 16..off + 20]);
-                let l3 = L3 { proto: Some("IPv4".into()), src: Some(src), dst: Some(dst) };
+                let tos = bytes[off + 1];
+                let total_len = u16::from_be_bytes([bytes[off + 2], bytes[off + 3]]);
+                let identification = u16::from_be_bytes([bytes[off + 4], bytes[off + 5]]);
+                let flags_and_offset = u16::from_be_bytes([bytes[off + 6], bytes[off + 7]]);
+                let flags = ((flags_and_offset >> 13) & 0x07) as u8;
+                let fragment_offset = flags_and_offset & 0x1fff;
+                let ttl = bytes[off + 8];
+                let checksum = u16::from_be_bytes([bytes[off + 10], bytes[off + 11]]);
+                let l3 = L3 {
+                    proto: Some("IPv4".into()),
+                    src: Some(src),
+                    dst: Some(dst),
+                    version: Some(version),
+                    header_len: Some((ihl / 4) as u8),
+                    tos: Some(tos),
+                    total_len: Some(total_len),
+                    identification: Some(identification),
+                    flags: Some(flags),
+                    fragment_offset: Some(fragment_offset),
+                    ttl: Some(ttl),
+                    protocol: Some(proto),
+                    checksum: Some(checksum),
+                    ..Default::default()
+                };
                 // L4
                 let l4_start = off + ihl;
                 let mut l4 = L4::default();
@@ -88,9 +168,26 @@ pub fn decode_packet(bytes: &[u8]) -> Result<JsValue, JsValue> {
                 if proto == ipm::PROTO::TCP && bytes.len() >= l4_start + 20 {
                     let sp = u16::from_be_bytes([bytes[l4_start], bytes[l4_start + 1]]);
                     let dp = u16::from_be_bytes([bytes[l4_start + 2], bytes[l4_start + 3]]);
+                    let seq = u32::from_be_bytes([bytes[l4_start + 4], bytes[l4_start + 5], bytes[l4_start + 6], bytes[l4_start + 7]]);
+                    let ack = u32::from_be_bytes([bytes[l4_start + 8], bytes[l4_start + 9], bytes[l4_start + 10], bytes[l4_start + 11]]);
                     let data_offset = (bytes[l4_start + 12] >> 4) as usize * 4;
                     let flags = bytes[l4_start + 13];
-                    l4 = L4 { proto: Some("TCP".into()), src_port: Some(sp), dst_port: Some(dp), tcp_flags: Some(tcp_flags(flags)) };
+                    let window = u16::from_be_bytes([bytes[l4_start + 14], bytes[l4_start + 15]]);
+                    let checksum = u16::from_be_bytes([bytes[l4_start + 16], bytes[l4_start + 17]]);
+                    let urgent = u16::from_be_bytes([bytes[l4_start + 18], bytes[l4_start + 19]]);
+                    l4 = L4 {
+                        proto: Some("TCP".into()),
+                        src_port: Some(sp),
+                        dst_port: Some(dp),
+                        tcp_flags: Some(tcp_flags(flags)),
+                        tcp_seq: Some(seq),
+                        tcp_ack: Some(ack),
+                        tcp_window: Some(window),
+                        tcp_checksum: Some(checksum),
+                        tcp_urgent: Some(urgent),
+                        tcp_data_offset: Some((data_offset / 4) as u8),
+                        ..Default::default()
+                    };
                     summary = format!("TCP {} → {}", sp, dp);
                     tag = "TCP".into();
                     // heuristics examples (HTTP/1 start-line, TLS record)
@@ -105,14 +202,34 @@ pub fn decode_packet(bytes: &[u8]) -> Result<JsValue, JsValue> {
                 } else if proto == ipm::PROTO::UDP && bytes.len() >= l4_start + 8 {
                     let sp = u16::from_be_bytes([bytes[l4_start], bytes[l4_start + 1]]);
                     let dp = u16::from_be_bytes([bytes[l4_start + 2], bytes[l4_start + 3]]);
-                    l4 = L4 { proto: Some("UDP".into()), src_port: Some(sp), dst_port: Some(dp), tcp_flags: None };
+                    let len = u16::from_be_bytes([bytes[l4_start + 4], bytes[l4_start + 5]]);
+                    let checksum = u16::from_be_bytes([bytes[l4_start + 6], bytes[l4_start + 7]]);
+                    l4 = L4 {
+                        proto: Some("UDP".into()),
+                        src_port: Some(sp),
+                        dst_port: Some(dp),
+                        udp_len: Some(len),
+                        udp_checksum: Some(checksum),
+                        ..Default::default()
+                    };
                     summary = format!("UDP {} → {}", sp, dp);
                     tag = "UDP".into();
-                } else if proto == ipm::PROTO::ICMP {
-                    summary = "ICMP".into();
+                } else if proto == ipm::PROTO::ICMP && bytes.len() >= l4_start + 8 {
+                    let icmp_type = bytes[l4_start];
+                    let icmp_code = bytes[l4_start + 1];
+                    let checksum = u16::from_be_bytes([bytes[l4_start + 2], bytes[l4_start + 3]]);
+                    l4 = L4 {
+                        proto: Some("ICMP".into()),
+                        icmp_type: Some(icmp_type),
+                        icmp_code: Some(icmp_code),
+                        icmp_checksum: Some(checksum),
+                        ..Default::default()
+                    };
+                    summary = format!("ICMP type {} code {}", icmp_type, icmp_code);
                     tag = "ICMP".into();
                 }
-                let out = Decoded { l2: Some(l2), l3: Some(l3), l4: if l4.proto.is_some() { Some(l4) } else { None }, summary, protocol_tag: tag, app_tag: None };
+                let description = build_description(bytes, &l2, &l3, &l4);
+                let out = Decoded { l2: Some(l2), l3: Some(l3), l4: if l4.proto.is_some() { Some(l4) } else { None }, summary, protocol_tag: tag, app_tag: None, description: Some(description) };
                 return serde_wasm_bindgen::to_value(&out).map_err(|e| JsValue::from_str(&e.to_string()));
             }
         }
@@ -134,6 +251,80 @@ pub fn decode_and_log(bytes: &[u8]) -> Result<(), JsValue> {
     let v = decode_packet(bytes)?;
     web_sys::console::log_1(&v);
     Ok(())
+}
+
+fn build_description(bytes: &[u8], l2: &L2, l3: &L3, l4: &L4) -> String {
+    let mut lines = Vec::new();
+    
+    // Frame info
+    let bits = bytes.len() * 8;
+    lines.push(format!("Frame: Packet, {} bytes on wire ({} bits), {} bytes captured ({} bits)",
+        bytes.len(), bits, bytes.len(), bits));
+    
+    // Ethernet II
+    if let (Some(src_mac), Some(dst_mac)) = (&l2.src_mac, &l2.dst_mac) {
+        let eth_line = if let Some(vlan) = l2.vlan {
+            format!("Ethernet II, VLAN: {}", vlan)
+        } else {
+            "Ethernet II".to_string()
+        };
+        lines.push(eth_line);
+        lines.push(format!("    Source: {}", src_mac));
+        lines.push(format!("    Destination: {}", dst_mac));
+    }
+    
+    // Layer 3
+    if let Some(proto_name) = &l3.proto {
+        match proto_name.as_str() {
+            "IPv4" => {
+                if let (Some(src), Some(dst)) = (&l3.src, &l3.dst) {
+                    lines.push(format!("Internet Protocol Version {}, Src: {}, Dst: {}",
+                        l3.version.unwrap_or(4), src, dst));
+                }
+            },
+            "IPv6" => {
+                if let (Some(src), Some(dst)) = (&l3.src, &l3.dst) {
+                    lines.push(format!("Internet Protocol Version 6, Src: {}, Dst: {}",
+                        src, dst));
+                }
+            },
+            _ => {}
+        }
+    }
+    
+    // Layer 4
+    if let Some(proto) = &l4.proto {
+        match proto.as_str() {
+            "TCP" => {
+                if let (Some(sp), Some(dp)) = (l4.src_port, l4.dst_port) {
+                    lines.push(format!("Transmission Control Protocol, Src Port: {}, Dst Port: {}",
+                        sp, dp));
+                }
+            },
+            "UDP" => {
+                if let (Some(sp), Some(dp)) = (l4.src_port, l4.dst_port) {
+                    lines.push(format!("User Datagram Protocol, Src Port: {}, Dst Port: {}",
+                        sp, dp));
+                }
+            },
+            "ICMP" => {
+                if let (Some(t), Some(c)) = (l4.icmp_type, l4.icmp_code) {
+                    lines.push(format!("Internet Control Message Protocol, Type: {}, Code: {}",
+                        t, c));
+                }
+            },
+            _ => {}
+        }
+    }
+    
+    // Check for DNS (port 53)
+    if let (Some(sp), Some(dp)) = (l4.src_port, l4.dst_port) {
+        if sp == 53 || dp == 53 {
+            lines.push("Domain Name System (query)".to_string());
+        }
+    }
+    
+    lines.join("\n")
 }
 
 fn tcp_flags(b: u8) -> String {
