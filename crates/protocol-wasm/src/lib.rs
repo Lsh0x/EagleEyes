@@ -78,6 +78,18 @@ fn ipv4_to_str(b: &[u8]) -> String {
     format!("{}.{}.{}.{}", b[0], b[1], b[2], b[3])
 }
 
+fn ipv6_to_str(b: &[u8]) -> String {
+    if b.len() != 16 { return String::new(); }
+    let mut parts = [0u16; 8];
+    for i in 0..8 {
+        parts[i] = u16::from_be_bytes([b[2 * i], b[2 * i + 1]]);
+    }
+    format!(
+        "{:x}:{:x}:{:x}:{:x}:{:x}:{:x}:{:x}:{:x}",
+        parts[0], parts[1], parts[2], parts[3], parts[4], parts[5], parts[6], parts[7]
+    )
+}
+
 fn ether_type_as_str(ether_type: u16) -> &'static str {
     match ether_type {
         0x0200 => "PUP",
@@ -165,6 +177,7 @@ pub fn decode_packet(bytes: &[u8]) -> Result<JsValue, JsValue> {
                 let mut l4 = L4::default();
                 let mut summary = String::new();
                 let mut tag = String::from("IPv4");
+                let mut app_tag: Option<String> = None;
                 if proto == ipm::PROTO::TCP && bytes.len() >= l4_start + 20 {
                     let sp = u16::from_be_bytes([bytes[l4_start], bytes[l4_start + 1]]);
                     let dp = u16::from_be_bytes([bytes[l4_start + 2], bytes[l4_start + 3]]);
@@ -195,9 +208,13 @@ pub fn decode_packet(bytes: &[u8]) -> Result<JsValue, JsValue> {
                     if let Some(sni) = sniff_tls_client_hello(payload) {
                         summary = if let Some(sni) = sni { format!("TLS ClientHello SNI={}", sni) } else { "TLS".into() };
                         tag = "TLS".into();
+                        app_tag = Some("TLS".into());
                     } else if let Some(line) = sniff_http1_first_line(payload) {
                         summary = line;
                         tag = "HTTP".into();
+                        app_tag = Some("HTTP".into());
+                    } else {
+                        app_tag = tcp_app_tag(sp, dp, payload);
                     }
                 } else if proto == ipm::PROTO::UDP && bytes.len() >= l4_start + 8 {
                     let sp = u16::from_be_bytes([bytes[l4_start], bytes[l4_start + 1]]);
@@ -214,6 +231,7 @@ pub fn decode_packet(bytes: &[u8]) -> Result<JsValue, JsValue> {
                     };
                     summary = format!("UDP {} → {}", sp, dp);
                     tag = "UDP".into();
+                    app_tag = udp_app_tag(sp, dp);
                 } else if proto == ipm::PROTO::ICMP && bytes.len() >= l4_start + 8 {
                     let icmp_type = bytes[l4_start];
                     let icmp_code = bytes[l4_start + 1];
@@ -229,9 +247,121 @@ pub fn decode_packet(bytes: &[u8]) -> Result<JsValue, JsValue> {
                     tag = "ICMP".into();
                 }
                 let description = build_description(bytes, &l2, &l3, &l4);
-                let out = Decoded { l2: Some(l2), l3: Some(l3), l4: if l4.proto.is_some() { Some(l4) } else { None }, summary, protocol_tag: tag, app_tag: None, description: Some(description) };
+                let out = Decoded { l2: Some(l2), l3: Some(l3), l4: if l4.proto.is_some() { Some(l4) } else { None }, summary, protocol_tag: tag, app_tag, description: Some(description) };
                 return serde_wasm_bindgen::to_value(&out).map_err(|e| JsValue::from_str(&e.to_string()));
             }
+        }
+        // IPv6
+        if ether_type == ethernet::PROTO::IPV6 && bytes.len() >= off + 40 {
+            // IPv6 fixed header
+            let ver_tc_fl = u32::from_be_bytes([bytes[off], bytes[off+1], bytes[off+2], bytes[off+3]]);
+            let version = ((ver_tc_fl & 0xF0000000) >> 28) as u8;
+            let traffic_class = ((ver_tc_fl & 0x0FF00000) >> 20) as u8;
+            let flow_label = ver_tc_fl & 0x000FFFFF;
+            let payload_len = u16::from_be_bytes([bytes[off+4], bytes[off+5]]);
+            let next_header = bytes[off+6];
+            let hop_limit = bytes[off+7];
+            let src = ipv6_to_str(&bytes[off+8..off+24]);
+            let dst = ipv6_to_str(&bytes[off+24..off+40]);
+            let l3 = L3 {
+                proto: Some("IPv6".into()),
+                src: Some(src),
+                dst: Some(dst),
+                traffic_class: Some(traffic_class),
+                flow_label: Some(flow_label),
+                payload_len: Some(payload_len),
+                next_header: Some(next_header),
+                hop_limit: Some(hop_limit),
+                version: Some(version),
+                ..Default::default()
+            };
+            let l4_start = off + 40; // ignoring extension headers for now
+            let mut l4 = L4::default();
+            let mut summary = String::from("IPv6");
+            let mut tag = String::from("IPv6");
+            let mut app_tag: Option<String> = None;
+            if next_header == ipm::PROTO::TCP && bytes.len() >= l4_start + 20 {
+                let sp = u16::from_be_bytes([bytes[l4_start], bytes[l4_start + 1]]);
+                let dp = u16::from_be_bytes([bytes[l4_start + 2], bytes[l4_start + 3]]);
+                let seq = u32::from_be_bytes([bytes[l4_start + 4], bytes[l4_start + 5], bytes[l4_start + 6], bytes[l4_start + 7]]);
+                let ack = u32::from_be_bytes([bytes[l4_start + 8], bytes[l4_start + 9], bytes[l4_start + 10], bytes[l4_start + 11]]);
+                let data_offset = (bytes[l4_start + 12] >> 4) as usize * 4;
+                let flags = bytes[l4_start + 13];
+                let window = u16::from_be_bytes([bytes[l4_start + 14], bytes[l4_start + 15]]);
+                let checksum = u16::from_be_bytes([bytes[l4_start + 16], bytes[l4_start + 17]]);
+                let urgent = u16::from_be_bytes([bytes[l4_start + 18], bytes[l4_start + 19]]);
+                l4 = L4 {
+                    proto: Some("TCP".into()),
+                    src_port: Some(sp),
+                    dst_port: Some(dp),
+                    tcp_flags: Some(tcp_flags(flags)),
+                    tcp_seq: Some(seq),
+                    tcp_ack: Some(ack),
+                    tcp_window: Some(window),
+                    tcp_checksum: Some(checksum),
+                    tcp_urgent: Some(urgent),
+                    tcp_data_offset: Some((data_offset / 4) as u8),
+                    ..Default::default()
+                };
+                summary = format!("TCP {} → {}", sp, dp);
+                tag = "TCP".into();
+                let payload = if bytes.len() >= l4_start + data_offset { &bytes[l4_start + data_offset..] } else { &[] };
+                if let Some(sni) = sniff_tls_client_hello(payload) {
+                    summary = if let Some(sni) = sni { format!("TLS ClientHello SNI={}", sni) } else { "TLS".into() };
+                    tag = "TLS".into();
+                    app_tag = Some("TLS".into());
+                } else if let Some(line) = sniff_http1_first_line(payload) {
+                    summary = line;
+                    tag = "HTTP".into();
+                    app_tag = Some("HTTP".into());
+                } else {
+                    app_tag = tcp_app_tag(sp, dp, payload);
+                }
+            } else if next_header == ipm::PROTO::UDP && bytes.len() >= l4_start + 8 {
+                let sp = u16::from_be_bytes([bytes[l4_start], bytes[l4_start + 1]]);
+                let dp = u16::from_be_bytes([bytes[l4_start + 2], bytes[l4_start + 3]]);
+                let len = u16::from_be_bytes([bytes[l4_start + 4], bytes[l4_start + 5]]);
+                let checksum = u16::from_be_bytes([bytes[l4_start + 6], bytes[l4_start + 7]]);
+                l4 = L4 {
+                    proto: Some("UDP".into()),
+                    src_port: Some(sp),
+                    dst_port: Some(dp),
+                    udp_len: Some(len),
+                    udp_checksum: Some(checksum),
+                    ..Default::default()
+                };
+                summary = format!("UDP {} → {}", sp, dp);
+                tag = "UDP".into();
+                app_tag = udp_app_tag(sp, dp);
+            } else if next_header == ipm::PROTO::IPV6ICMP && bytes.len() >= l4_start + 4 {
+                let icmp_type = bytes[l4_start];
+                let icmp_code = bytes[l4_start + 1];
+                let checksum = u16::from_be_bytes([bytes[l4_start + 2], bytes[l4_start + 3]]);
+                l4 = L4 {
+                    proto: Some("ICMPv6".into()),
+                    icmp_type: Some(icmp_type),
+                    icmp_code: Some(icmp_code),
+                    icmp_checksum: Some(checksum),
+                    ..Default::default()
+                };
+                summary = format!("ICMPv6 type {} code {}", icmp_type, icmp_code);
+                tag = "ICMPv6".into();
+            }
+            let description = build_description(bytes, &l2, &l3, &l4);
+            let out = Decoded { l2: Some(l2), l3: Some(l3), l4: if l4.proto.is_some() { Some(l4) } else { None }, summary, protocol_tag: tag, app_tag, description: Some(description) };
+            return serde_wasm_bindgen::to_value(&out).map_err(|e| JsValue::from_str(&e.to_string()));
+        }
+        if ether_type == ethernet::PROTO::LLDP {
+            let out = Decoded { l2: Some(l2), summary: "LLDP".into(), protocol_tag: "LLDP".into(), ..Default::default() };
+            return serde_wasm_bindgen::to_value(&out).map_err(|e| JsValue::from_str(&e.to_string()));
+        }
+        if ether_type == ethernet::PROTO::MPLS_U || ether_type == ethernet::PROTO::MPLS_M {
+            let out = Decoded { l2: Some(l2), summary: "MPLS".into(), protocol_tag: "MPLS".into(), ..Default::default() };
+            return serde_wasm_bindgen::to_value(&out).map_err(|e| JsValue::from_str(&e.to_string()));
+        }
+        if ether_type == ethernet::PROTO::PPPOE_DISC || ether_type == ethernet::PROTO::PPPOE_SESS {
+            let out = Decoded { l2: Some(l2), summary: "PPPoE".into(), protocol_tag: "PPPoE".into(), ..Default::default() };
+            return serde_wasm_bindgen::to_value(&out).map_err(|e| JsValue::from_str(&e.to_string()));
         }
         if ether_type == ethernet::PROTO::ARP {
             let out = Decoded { l2: Some(l2), summary: "ARP".into(), protocol_tag: "ARP".into(), ..Default::default() };
@@ -313,6 +443,12 @@ fn build_description(bytes: &[u8], l2: &L2, l3: &L3, l4: &L4) -> String {
                         t, c));
                 }
             },
+            "ICMPv6" => {
+                if let (Some(t), Some(c)) = (l4.icmp_type, l4.icmp_code) {
+                    lines.push(format!("Internet Control Message Protocol v6, Type: {}, Code: {}",
+                        t, c));
+                }
+            },
             _ => {}
         }
     }
@@ -389,4 +525,80 @@ fn sniff_tls_client_hello(payload: &[u8]) -> Option<Option<String>> {
         p += el;
     }
     Some(None)
+}
+
+fn udp_app_tag(sp: u16, dp: u16) -> Option<String> {
+    let a = sp; let b = dp;
+    let port = |p| a == p || b == p;
+    if port(53) { return Some("DNS".into()); }
+    if port(5353) { return Some("mDNS".into()); }
+    if port(67) || port(68) { return Some("DHCP".into()); }
+    if port(123) { return Some("NTP".into()); }
+    if port(161) || port(162) { return Some("SNMP".into()); }
+    if port(514) { return Some("Syslog".into()); }
+    if port(69) { return Some("TFTP".into()); }
+    if port(137) || port(138) { return Some("NetBIOS".into()); }
+    if port(546) || port(547) { return Some("DHCPv6".into()); }
+    if port(520) { return Some("RIP".into()); }
+    if port(5060) { return Some("SIP".into()); }
+    if port(443) { return Some("QUIC".into()); }
+    if port(5683) { return Some("CoAP".into()); }
+    if port(1900) { return Some("SSDP".into()); }
+    if port(5355) { return Some("LLMNR".into()); }
+    if port(88) { return Some("Kerberos".into()); }
+    if port(3478) || port(5349) { return Some("STUN/TURN".into()); }
+    None
+}
+
+fn tcp_app_tag(sp: u16, dp: u16, payload: &[u8]) -> Option<String> {
+    let a = sp; let b = dp;
+    let port = |p| a == p || b == p;
+    if port(179) { return Some("BGP".into()); }
+    if port(22) { return Some("SSH".into()); }
+    if port(23) { return Some("Telnet".into()); }
+    if port(21) { return Some("FTP".into()); }
+    if port(990) {
+        if sniff_tls_client_hello(payload).is_some() { return Some("FTPS".into()); }
+        return Some("FTP".into());
+    }
+    if port(25) || port(587) { return Some("SMTP".into()); }
+    if port(465) { return Some("SMTPS".into()); }
+    if port(110) { return Some("POP3".into()); }
+    if port(143) { return Some("IMAP".into()); }
+    if port(993) {
+        if sniff_tls_client_hello(payload).is_some() { return Some("IMAPS".into()); }
+        return Some("IMAP".into());
+    }
+    if port(389) { return Some("LDAP".into()); }
+    if port(636) { return Some("LDAPS".into()); }
+    if port(853) { return Some("DoT".into()); }
+    if port(3389) { return Some("RDP".into()); }
+    if port(139) || port(445) { return Some("SMB".into()); }
+    if port(554) { return Some("RTSP".into()); }
+    if port(5060) { return Some("SIP".into()); }
+    if port(443) || port(8443) {
+        if sniff_tls_client_hello(payload).is_some() { return Some("TLS/HTTPS".into()); }
+        return Some("HTTP".into());
+    }
+    if port(80) || port(8080) || port(8000) { return Some("HTTP".into()); }
+    if port(1883) { return Some("MQTT".into()); }
+    if port(8883) {
+        if sniff_tls_client_hello(payload).is_some() { return Some("MQTTS".into()); }
+        return Some("MQTT".into());
+    }
+    if port(5672) { return Some("AMQP".into()); }
+    if port(5671) {
+        if sniff_tls_client_hello(payload).is_some() { return Some("AMQPS".into()); }
+        return Some("AMQP".into());
+    }
+    if port(61613) || port(61614) { return Some("STOMP".into()); }
+    if port(6379) { return Some("Redis".into()); }
+    if port(11211) { return Some("Memcached".into()); }
+    if port(3478) { return Some("STUN".into()); }
+    if port(5349) {
+        if sniff_tls_client_hello(payload).is_some() { return Some("STUN/TURN over TLS".into()); }
+        return Some("STUN/TURN".into());
+    }
+    if port(5355) { return Some("LLMNR".into()); }
+    None
 }
