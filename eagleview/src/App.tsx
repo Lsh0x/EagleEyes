@@ -653,24 +653,6 @@ function App() {
     setSidePinned(true)
   }
 
-  function jumpToPacket(idx: number) {
-    setSelectedIndex(idx)
-    requestAnimationFrame(() => {
-      const el = document.getElementById(`row-${idx}`)
-      el?.scrollIntoView({ block: 'nearest' })
-    })
-  }
-
-  function getFlowNeighbors(idx: number): { prev?: number; next?: number } {
-    const row = rowByIndex.get(idx)
-    if (!row || !row.flowKey) return {}
-    const same = packets.filter(r => r.flowKey === row.flowKey)
-      .slice()
-      .sort((a,b)=> (a.ts||0)-(b.ts||0) || a.index-b.index)
-    const pos = same.findIndex(r => r.index === idx)
-    if (pos === -1) return {}
-    return { prev: pos>0 ? same[pos-1].index : undefined, next: pos+1<same.length ? same[pos+1].index : undefined }
-  }
 
   function openExchange(ex: Exchange) {
     // Prefer opening the request first; else response; else select first packet id
@@ -678,6 +660,12 @@ function App() {
     if (pid) openPacketDetails(pid)
     setTxnFocus(ex.id)
     setViewMode('list')
+  }
+
+  function toggleFlowFocus(k: string) {
+    setViewMode('list')
+    setFlowKey(prev => (prev === k ? null : k))
+    if (txnFocus) setTxnFocus(null)
   }
 
   return (
@@ -1181,12 +1169,16 @@ function App() {
                              {p.app && (<div style={{marginTop:6}}>App: <span className={'badge proto-' + p.app.toLowerCase()}>{p.app}</span></div>)}
                              <div style={{marginTop:8, display:'flex', gap:8, flexWrap:'wrap'}}>
                                {(() => {
-                                 const nb = getFlowNeighbors(p.index)
+                                 const row = rowByIndex.get(p.index)
+                                 const focused = !!(row?.flowKey && flowKey === row.flowKey)
                                  return (
-                                   <>
-                                     <button className="mini" disabled={!nb.prev} title="Previous packet in this flow" onClick={()=> nb.prev && jumpToPacket(nb.prev!)}>⟵ Prev in flow</button>
-                                     <button className="mini" disabled={!nb.next} title="Next packet in this flow" onClick={()=> nb.next && jumpToPacket(nb.next!)}>Next in flow ⟶</button>
-                                   </>
+                                   <button
+                                     className={`mini ${focused?'active':''}`}
+                                     title={focused ? 'Clear flow focus' : 'Focus only this flow'}
+                                     onClick={() => row?.flowKey && toggleFlowFocus(row.flowKey)}
+                                   >
+                                     {focused ? 'Clear flow focus' : 'Focus this flow'}
+                                   </button>
                                  )
                                })()}
                                {(() => {
