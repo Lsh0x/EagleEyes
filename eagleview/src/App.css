@@ -129,6 +129,7 @@
   border-radius: 6px;
 }
 .table td .mini:hover { color: #cfe1f5; border-color: #3c4a5b; }
+.table td .mini.active { background:#1f6feb; border-color:#1f6feb; color:white; }
 
 .badge {
   display: inline-block;
