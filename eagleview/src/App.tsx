@@ -653,6 +653,33 @@ function App() {
     setSidePinned(true)
   }
 
+  function jumpToPacket(idx: number) {
+    setSelectedIndex(idx)
+    requestAnimationFrame(() => {
+      const el = document.getElementById(`row-${idx}`)
+      el?.scrollIntoView({ block: 'nearest' })
+    })
+  }
+
+  function getFlowNeighbors(idx: number): { prev?: number; next?: number } {
+    const row = rowByIndex.get(idx)
+    if (!row || !row.flowKey) return {}
+    const same = packets.filter(r => r.flowKey === row.flowKey)
+      .slice()
+      .sort((a,b)=> (a.ts||0)-(b.ts||0) || a.index-b.index)
+    const pos = same.findIndex(r => r.index === idx)
+    if (pos === -1) return {}
+    return { prev: pos>0 ? same[pos-1].index : undefined, next: pos+1<same.length ? same[pos+1].index : undefined }
+  }
+
+  function openExchange(ex: Exchange) {
+    // Prefer opening the request first; else response; else select first packet id
+    const pid = ex.request?.packetIds?.[0] || ex.response?.packetIds?.[0]
+    if (pid) openPacketDetails(pid)
+    setTxnFocus(ex.id)
+    setViewMode('list')
+  }
+
   return (
     <div className="app-root">
       <header className="topbar">
@@ -1148,11 +1175,36 @@ function App() {
                           </div>
                           <div className="details-grid">
                             <div>
-                              <div className="details">
-                                <div className="details-title">Summary</div>
-                                <div className="mono" style={{whiteSpace:'pre-wrap'}}>{p.info}</div>
-                                {p.app && (<div style={{marginTop:6}}>App: <span className={'badge proto-' + p.app.toLowerCase()}>{p.app}</span></div>)}
-                              </div>
+                          <div className="details">
+                             <div className="details-title">Summary</div>
+                             <div className="mono" style={{whiteSpace:'pre-wrap'}}>{p.info}</div>
+                             {p.app && (<div style={{marginTop:6}}>App: <span className={'badge proto-' + p.app.toLowerCase()}>{p.app}</span></div>)}
+                             <div style={{marginTop:8, display:'flex', gap:8, flexWrap:'wrap'}}>
+                               {(() => {
+                                 const nb = getFlowNeighbors(p.index)
+                                 return (
+                                   <>
+                                     <button className="mini" disabled={!nb.prev} title="Previous packet in this flow" onClick={()=> nb.prev && jumpToPacket(nb.prev!)}>⟵ Prev in flow</button>
+                                     <button className="mini" disabled={!nb.next} title="Next packet in this flow" onClick={()=> nb.next && jumpToPacket(nb.next!)}>Next in flow ⟶</button>
+                                   </>
+                                 )
+                               })()}
+                               {(() => {
+                                 const ex = exByPacket.get(p.index)
+                                 if (!ex || !ex.flowId) return null
+                                 const flowEx = exchanges.filter(e => e.flowId === ex.flowId)
+                                 const pos = flowEx.findIndex(e => e.id === ex.id)
+                                 const prev = pos > 0 ? flowEx[pos-1] : null
+                                 const next = pos >= 0 && pos+1 < flowEx.length ? flowEx[pos+1] : null
+                                 return (
+                                   <>
+                                     <button className="mini" disabled={!prev} title="Previous request/response in this flow" onClick={()=> prev && openExchange(prev)}>⟵ Prev exchange</button>
+                                     <button className="mini" disabled={!next} title="Next request/response in this flow" onClick={()=> next && openExchange(next)}>Next exchange ⟶</button>
+                                   </>
+                                 )
+                               })()}
+                             </div>
+                           </div>
                               <div className="details" style={{marginTop:8}}>
                                 <div className="details-title">Key fields</div>
                                 <div>Src IP: {p.src || '-'}</div>
